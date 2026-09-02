@@ -1,7 +1,14 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await Firebase.initializeApp();
+  } catch (e) {
+    debugPrint("Firebase init error: $e");
+  }
   runApp(const VibeNetApp());
 }
 
@@ -14,352 +21,189 @@ class VibeNetApp extends StatelessWidget {
       title: 'VibeNet',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF6C4AB6)),
+        colorSchemeSeed: const Color(0xFF6750A4),
         useMaterial3: true,
       ),
-      home: const LoginPage(),
+      home: const ChatListScreen(),
     );
   }
 }
 
-// ১. লগইন পেজ (যেখানে OTP জেনারেট হবে)
-class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+class ChatListScreen extends StatefulWidget {
+  const ChatListScreen({super.key});
 
   @override
-  State<LoginPage> createState() => _LoginPageState();
+  State<ChatListScreen> createState() => _ChatListScreenState();
 }
 
-class _LoginPageState extends State<LoginPage> {
-  final TextEditingController _phoneController = TextEditingController();
-
-  void _generateAndSendOtp() {
-    String phone = _phoneController.text.trim();
-    if (phone.length < 10) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('সঠিক ১০ ডিজিটের মোবাইল নম্বর দিন'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
-      return;
-    }
-
-    // একটি ৬ ডিজিটের র্যান্ডম ওটিপি তৈরি
-    final random = Random();
-    String generatedOtp = (100000 + random.nextInt(900000)).toString();
-
-    // স্ক্রিনে এসএমএস পপ-আপ দেখানো
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext ctx) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(
-            children: [
-              Icon(Icons.message_rounded, color: Color(0xFF6C4AB6)),
-              SizedBox(width: 8),
-              Text('SMS Notification', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Sent to: +91 $phone', style: const TextStyle(color: Colors.grey, fontSize: 13)),
-              const SizedBox(height: 12),
-              const Text('Your VibeNet verification OTP is:'),
-              const SizedBox(height: 8),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                  color: Colors.purple.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Center(
-                  child: Text(
-                    generatedOtp,
-                    style: const TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 6,
-                      color: Color(0xFF6C4AB6),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(ctx);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => OtpVerificationPage(
-                      phoneNumber: phone,
-                      correctOtp: generatedOtp,
-                    ),
-                  ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF6C4AB6),
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Proceed to Verify'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 40),
-              const Center(
-                child: CircleAvatar(
-                  radius: 45,
-                  backgroundColor: Color(0xFFEDE7F6),
-                  child: Icon(Icons.people_alt_rounded, size: 50, color: Color(0xFF6C4AB6)),
-                ),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'Welcome Back',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.black87),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Access your account with your mobile number',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey),
-              ),
-              const SizedBox(height: 36),
-              TextField(
-                controller: _phoneController,
-                keyboardType: TextInputType.phone,
-                decoration: InputDecoration(
-                  prefixText: '+91 ',
-                  prefixStyle: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
-                  hintText: 'Enter Mobile Number',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-                ),
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: _generateAndSendOtp,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6C4AB6),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                ),
-                child: const Text('Send OTP', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ২. ওটিপি ভেরিফিকেশন পেজ (যেখানে সঠিক OTP চেক হবে)
-class OtpVerificationPage extends StatefulWidget {
-  final String phoneNumber;
-  final String correctOtp;
-
-  const OtpVerificationPage({
-    super.key,
-    required this.phoneNumber,
-    required this.correctOtp,
-  });
-
-  @override
-  State<OtpVerificationPage> createState() => _OtpVerificationPageState();
-}
-
-class _OtpVerificationPageState extends State<OtpVerificationPage> {
-  final TextEditingController _otpController = TextEditingController();
-
-  void _verifyOtp() {
-    String enteredOtp = _otpController.text.trim();
-
-    if (enteredOtp.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ওটিপি কোডটি লিখুন'), backgroundColor: Colors.orange),
-      );
-      return;
-    }
-
-    if (enteredOtp == widget.correctOtp) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const HomePage()),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('ভুল ওটিপি! স্ক্রিনে দেখানো ওটিপি কোডটি দিন।'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Verify OTP')),
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              '+91 ${widget.phoneNumber} নম্বরে ওটিপি পাঠানো হয়েছে',
-              style: const TextStyle(fontSize: 16, color: Colors.grey),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Demo Code Sent: ${widget.correctOtp}',
-              style: const TextStyle(fontSize: 13, color: Color(0xFF6C4AB6), fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 24),
-            TextField(
-              controller: _otpController,
-              keyboardType: TextInputType.number,
-              maxLength: 6,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 22, letterSpacing: 8, fontWeight: FontWeight.bold),
-              decoration: InputDecoration(
-                hintText: '------',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-              ),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _verifyOtp,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF6C4AB6),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              ),
-              child: const Text('Verify & Continue', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ৩. হোম পেজ
-class HomePage extends StatelessWidget {
-  const HomePage({super.key});
+class _ChatListScreenState extends State<ChatListScreen> {
+  final List<Map<String, String>> contacts = [
+    {'name': 'Rahul Sharma', 'phone': '+91 9876543210', 'status': 'Hey there! Using VibeNet.'},
+    {'name': 'Priya Das', 'phone': '+91 9123456780', 'status': 'Available'},
+    {'name': 'Amit Roy', 'phone': '+91 9988776655', 'status': 'Busy at work'},
+  ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('VibeNet Feed', style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFF6C4AB6),
+        title: const Text('VibeNet Chats', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: const Color(0xFF6750A4),
         foregroundColor: Colors.white,
-        actions: [
-          IconButton(onPressed: () {}, icon: const Icon(Icons.notifications_none)),
-          IconButton(onPressed: () {}, icon: const Icon(Icons.chat_bubble_outline)),
-        ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
+      body: ListView.separated(
+        itemCount: contacts.length,
+        separatorBuilder: (_, __) => const Divider(height: 1),
+        itemBuilder: (context, index) {
+          final person = contacts[index];
+          return ListTile(
+            leading: CircleAvatar(
+              backgroundColor: const Color(0xFF6750A4),
+              foregroundColor: Colors.white,
+              child: Text(person['name']![0]),
+            ),
+            title: Text(person['name']!, style: const TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: Text(person['status']!),
+            trailing: const Icon(Icons.chat_bubble_outline, color: Color(0xFF6750A4)),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ConversationScreen(
+                    receiverName: person['name']!,
+                    receiverPhone: person['phone']!,
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+class ConversationScreen extends StatefulWidget {
+  final String receiverName;
+  final String receiverPhone;
+
+  const ConversationScreen({
+    super.key,
+    required this.receiverName,
+    required this.receiverPhone,
+  });
+
+  @override
+  State<ConversationScreen> createState() => _ConversationScreenState();
+}
+
+class _ConversationScreenState extends State<ConversationScreen> {
+  final TextEditingController _msgController = TextEditingController();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  void _sendMessage() async {
+    final text = _msgController.text.trim();
+    if (text.isEmpty) return;
+
+    _msgController.clear();
+
+    await _firestore.collection('chats').add({
+      'sender': 'Me',
+      'receiver': widget.receiverPhone,
+      'text': text,
+      'timestamp': FieldValue.serverTimestamp(),
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(widget.receiverName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text(widget.receiverPhone, style: const TextStyle(fontSize: 12)),
+          ],
+        ),
+        backgroundColor: const Color(0xFF6750A4),
+        foregroundColor: Colors.white,
+      ),
+      body: Column(
         children: [
-          Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            elevation: 2,
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Row(
-                    children: [
-                      CircleAvatar(
-                        backgroundColor: Color(0xFF6C4AB6),
-                        child: Icon(Icons.person, color: Colors.white),
+          Expanded(
+            child: StreamBuilder<QuerySnapshot>(
+              stream: _firestore
+                  .collection('chats')
+                  .orderBy('timestamp', descending: true)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                final docs = snapshot.data!.docs;
+
+                return ListView.builder(
+                  reverse: true,
+                  itemCount: docs.length,
+                  itemBuilder: (context, index) {
+                    final data = docs[index].data() as Map<String, dynamic>;
+                    final isMe = data['sender'] == 'Me';
+
+                    return Align(
+                      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: isMe ? const Color(0xFF6750A4) : Colors.grey.shade200,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Text(
+                          data['text'] ?? '',
+                          style: TextStyle(
+                            color: isMe ? Colors.white : Colors.black87,
+                            fontSize: 15,
+                          ),
+                        ),
                       ),
-                      SizedBox(width: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('VibeNet Community', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                          Text('Just now', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                        ],
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.all(8),
+            color: Colors.white,
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _msgController,
+                    decoration: InputDecoration(
+                      hintText: 'Type a message...',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        borderSide: BorderSide.none,
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  const Text(
-                    'Welcome to VibeNet! Connect, share moments, and vibe with your network.',
-                    style: TextStyle(fontSize: 15),
-                  ),
-                  const SizedBox(height: 16),
-                  Container(
-                    height: 180,
-                    decoration: BoxDecoration(
-                      color: Colors.purple.shade50,
-                      borderRadius: BorderRadius.circular(12),
+                      filled: true,
+                      fillColor: Colors.grey.shade100,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                     ),
-                    child: const Center(
-                      child: Icon(Icons.image_outlined, size: 60, color: Color(0xFF6C4AB6)),
-                    ),
                   ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      TextButton.icon(
-                        onPressed: () {},
-                        icon: const Icon(Icons.favorite_border, color: Colors.red),
-                        label: const Text('Like', style: TextStyle(color: Colors.black)),
-                      ),
-                      TextButton.icon(
-                        onPressed: () {},
-                        icon: const Icon(Icons.comment_outlined, color: Colors.blue),
-                        label: const Text('Comment', style: TextStyle(color: Colors.black)),
-                      ),
-                      TextButton.icon(
-                        onPressed: () {},
-                        icon: const Icon(Icons.share_outlined, color: Colors.green),
-                        label: const Text('Share', style: TextStyle(color: Colors.black)),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(width: 8),
+                IconButton.filled(
+                  icon: const Icon(Icons.send),
+                  onPressed: _sendMessage,
+                  style: IconButton.styleFrom(backgroundColor: const Color(0xFF6750A4)),
+                ),
+              ],
             ),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {},
-        backgroundColor: const Color(0xFF6C4AB6),
-        foregroundColor: Colors.white,
-        child: const Icon(Icons.add),
       ),
     );
   }
