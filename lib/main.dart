@@ -24,13 +24,131 @@ class VibeNetApp extends StatelessWidget {
         colorSchemeSeed: const Color(0xFF6750A4),
         useMaterial3: true,
       ),
-      home: const ChatListScreen(),
+      home: const LoginScreen(),
     );
   }
 }
 
+// --- লগইন ও ওটিপি স্ক্রিন ---
+class LoginScreen extends StatefulWidget {
+  const LoginScreen({super.key});
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _otpController = TextEditingController();
+  bool _isOtpSent = false;
+  final String _demoOtp = "1234"; // ডেমো ওটিপি টেস্ট করার জন্য
+
+  void _sendOtp() {
+    if (_phoneController.text.trim().length >= 10) {
+      setState(() {
+        _isOtpSent = true;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('OTP পাঠানো হয়েছে! (টেস্ট OTP: 1234)')),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('সঠিক ১০ সংখ্যার মোবাইল নম্বর দিন')),
+      );
+    }
+  }
+
+  void _verifyOtp() {
+    if (_otpController.text.trim() == _demoOtp) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ChatListScreen(myPhone: _phoneController.text.trim()),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ভুল OTP! দয়া করে 1234 লিখুন')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('VibeNet Login', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: const Color(0xFF6750A4),
+        foregroundColor: Colors.white,
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Icon(Icons.forum_rounded, size: 80, color: Color(0xFF6750A4)),
+            const SizedBox(height: 16),
+            const Text(
+              'Welcome to VibeNet',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 32),
+            TextField(
+              controller: _phoneController,
+              keyboardType: TextInputType.phone,
+              enabled: !_isOtpSent,
+              decoration: const InputDecoration(
+                labelText: 'Phone Number',
+                prefixText: '+91 ',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.phone),
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (_isOtpSent) ...[
+              TextField(
+                controller: _otpController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Enter OTP (1234)',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.lock_clock),
+                ),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _verifyOtp,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF6750A4),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                child: const Text('Verify & Enter Chat', style: TextStyle(fontSize: 16)),
+              ),
+            ] else ...[
+              ElevatedButton(
+                onPressed: _sendOtp,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF6750A4),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                child: const Text('Send OTP', style: TextStyle(fontSize: 16)),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// --- কন্টাক্ট / চ্যাট লিস্ট স্ক্রিন ---
 class ChatListScreen extends StatefulWidget {
-  const ChatListScreen({super.key});
+  final String myPhone;
+  const ChatListScreen({super.key, required this.myPhone});
 
   @override
   State<ChatListScreen> createState() => _ChatListScreenState();
@@ -38,9 +156,9 @@ class ChatListScreen extends StatefulWidget {
 
 class _ChatListScreenState extends State<ChatListScreen> {
   final List<Map<String, String>> contacts = [
-    {'name': 'Rahul Sharma', 'phone': '+91 9876543210', 'status': 'Hey there! Using VibeNet.'},
-    {'name': 'Priya Das', 'phone': '+91 9123456780', 'status': 'Available'},
-    {'name': 'Amit Roy', 'phone': '+91 9988776655', 'status': 'Busy at work'},
+    {'name': 'Rahul Sharma', 'phone': '9876543210', 'status': 'Hey there! Using VibeNet.'},
+    {'name': 'Priya Das', 'phone': '9123456780', 'status': 'Available'},
+    {'name': 'Amit Roy', 'phone': '9988776655', 'status': 'Busy at work'},
   ];
 
   @override
@@ -50,6 +168,17 @@ class _ChatListScreenState extends State<ChatListScreen> {
         title: const Text('VibeNet Chats', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFF6750A4),
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const LoginScreen()),
+              );
+            },
+          )
+        ],
       ),
       body: ListView.separated(
         itemCount: contacts.length,
@@ -70,6 +199,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
                 context,
                 MaterialPageRoute(
                   builder: (context) => ConversationScreen(
+                    myPhone: widget.myPhone,
                     receiverName: person['name']!,
                     receiverPhone: person['phone']!,
                   ),
@@ -83,12 +213,15 @@ class _ChatListScreenState extends State<ChatListScreen> {
   }
 }
 
+// --- মেসেজিং / কথোপকথন স্ক্রিন ---
 class ConversationScreen extends StatefulWidget {
+  final String myPhone;
   final String receiverName;
   final String receiverPhone;
 
   const ConversationScreen({
     super.key,
+    required this.myPhone,
     required this.receiverName,
     required this.receiverPhone,
   });
@@ -108,7 +241,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
     _msgController.clear();
 
     await _firestore.collection('chats').add({
-      'sender': 'Me',
+      'sender': widget.myPhone,
       'receiver': widget.receiverPhone,
       'text': text,
       'timestamp': FieldValue.serverTimestamp(),
@@ -149,7 +282,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
                   itemCount: docs.length,
                   itemBuilder: (context, index) {
                     final data = docs[index].data() as Map<String, dynamic>;
-                    final isMe = data['sender'] == 'Me';
+                    final isMe = data['sender'] == widget.myPhone;
 
                     return Align(
                       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
