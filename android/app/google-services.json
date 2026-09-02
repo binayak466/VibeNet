@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "328420807383",
+    "project_id": "vibenet-chat",
+    "storage_bucket": "vibenet-chat.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:328420807383:android:49db8e29dc03664c64d692",
+        "android_client_info": {
+          "package_name": "com.example.vibenet"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCj7GM2yfp_16tgFpZqaxGU4InlcUgKFA4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
