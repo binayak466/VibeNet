@@ -69,7 +69,7 @@ class _LoginPageState extends State<LoginPage> {
               const Text(
                 'Welcome Back',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.black800),
+                style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.black87),
               ),
               const SizedBox(height: 8),
               const Text(
