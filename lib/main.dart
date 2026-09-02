@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 
 void main() {
@@ -21,7 +22,7 @@ class VibeNetApp extends StatelessWidget {
   }
 }
 
-// ১. লগইন পেজ
+// ১. লগইন পেজ (যেখানে OTP জেনারেট হবে)
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -32,19 +33,89 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final TextEditingController _phoneController = TextEditingController();
 
-  void _sendOtp() {
-    if (_phoneController.text.trim().length >= 10) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => OtpVerificationPage(phoneNumber: _phoneController.text.trim()),
+  void _generateAndSendOtp() {
+    String phone = _phoneController.text.trim();
+    if (phone.length < 10) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('সঠিক ১০ ডিজিটের মোবাইল নম্বর দিন'),
+          backgroundColor: Colors.redAccent,
         ),
       );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('সঠিক ১০ ডিজিটের মোবাইল নম্বর দিন')),
-      );
+      return;
     }
+
+    // একটি ৬ ডিজিটের র্যান্ডম ওটিপি তৈরি
+    final random = Random();
+    String generatedOtp = (100000 + random.nextInt(900000)).toString();
+
+    // স্ক্রিনে এসএমএস পপ-আপ দেখানো
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext ctx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.message_rounded, color: Color(0xFF6C4AB6)),
+              SizedBox(width: 8),
+              Text('SMS Notification', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Sent to: +91 $phone', style: const TextStyle(color: Colors.grey, fontSize: 13)),
+              const SizedBox(height: 12),
+              const Text('Your VibeNet verification OTP is:'),
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.purple.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Center(
+                  child: Text(
+                    generatedOtp,
+                    style: const TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 6,
+                      color: Color(0xFF6C4AB6),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => OtpVerificationPage(
+                      phoneNumber: phone,
+                      correctOtp: generatedOtp,
+                    ),
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF6C4AB6),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Proceed to Verify'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -90,7 +161,7 @@ class _LoginPageState extends State<LoginPage> {
               ),
               const SizedBox(height: 20),
               ElevatedButton(
-                onPressed: _sendOtp,
+                onPressed: _generateAndSendOtp,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF6C4AB6),
                   foregroundColor: Colors.white,
@@ -107,10 +178,16 @@ class _LoginPageState extends State<LoginPage> {
   }
 }
 
-// ২. ওটিপি ভেরিফিকেশন পেজ
+// ২. ওটিপি ভেরিফিকেশন পেজ (যেখানে সঠিক OTP চেক হবে)
 class OtpVerificationPage extends StatefulWidget {
   final String phoneNumber;
-  const OtpVerificationPage({super.key, required this.phoneNumber});
+  final String correctOtp;
+
+  const OtpVerificationPage({
+    super.key,
+    required this.phoneNumber,
+    required this.correctOtp,
+  });
 
   @override
   State<OtpVerificationPage> createState() => _OtpVerificationPageState();
@@ -120,14 +197,26 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
   final TextEditingController _otpController = TextEditingController();
 
   void _verifyOtp() {
-    if (_otpController.text.trim().isNotEmpty) {
+    String enteredOtp = _otpController.text.trim();
+
+    if (enteredOtp.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ওটিপি কোডটি লিখুন'), backgroundColor: Colors.orange),
+      );
+      return;
+    }
+
+    if (enteredOtp == widget.correctOtp) {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const HomePage()),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ওটিপি কোডটি লিখুন')),
+        const SnackBar(
+          content: Text('ভুল ওটিপি! স্ক্রিনে দেখানো ওটিপি কোডটি দিন।'),
+          backgroundColor: Colors.redAccent,
+        ),
       );
     }
   }
@@ -144,6 +233,11 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
             Text(
               '+91 ${widget.phoneNumber} নম্বরে ওটিপি পাঠানো হয়েছে',
               style: const TextStyle(fontSize: 16, color: Colors.grey),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Demo Code Sent: ${widget.correctOtp}',
+              style: const TextStyle(fontSize: 13, color: Color(0xFF6C4AB6), fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 24),
             TextField(
@@ -175,7 +269,7 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
   }
 }
 
-// ৩. মূল হোম পেজ (সোশ্যাল ফিড)
+// ৩. হোম পেজ
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
