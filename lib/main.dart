@@ -1508,10 +1508,43 @@ class _ConversationScreenState extends State<ConversationScreen> {
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
                               Flexible(
-                                child: Text(
-                                  data['text'] ?? '',
-                                  style: TextStyle(fontSize: 15, color: isMe ? Colors.white : Colors.black87),
-                                ),
+                                child: data['text'].toString().startsWith('[')
+                                    ? Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            data['text'].toString().contains('Gallery') || data['text'].toString().contains('Camera')
+                                                ? Icons.image
+                                                : (data['text'].toString().contains('Location')
+                                                    ? Icons.location_on
+                                                    : (data['text'].toString().contains('Contact')
+                                                        ? Icons.person
+                                                        : (data['text'].toString().contains('Document')
+                                                            ? Icons.insert_drive_file
+                                                            : Icons.attachment))),
+                                            color: isMe ? Colors.white : Colors.black87,
+                                            size: 20,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Flexible(
+                                            child: Text(
+                                              data['text'] ?? '',
+                                              style: TextStyle(
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.bold,
+                                                color: isMe ? Colors.white : Colors.black87,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      )
+                                    : Text(
+                                        data['text'] ?? '',
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          color: isMe ? Colors.white : Colors.black87,
+                                        ),
+                                      ),
                               ),
                               const SizedBox(width: 6),
                               if (isMe)
@@ -1548,24 +1581,48 @@ class _ConversationScreenState extends State<ConversationScreen> {
                           onPressed: () {
                             showModalBottomSheet(
                               context: context,
+                              backgroundColor: const Color(0xFF1E1E1E),
+                              shape: const RoundedRectangleBorder(
+                                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                              ),
                               builder: (ctx) => Container(
                                 padding: const EdgeInsets.all(16),
-                                height: 200,
-                                child: GridView.count(
-                                  crossAxisCount: 6,
-                                  children: ['😀', '😂', '😍', '😎', '😢', '🔥', '👍', '❤️', '🎉', '✨', '🙏', '💯']
-                                      .map((emoji) => InkWell(
-                                            onTap: () {
-                                              setState(() {
-                                                _msgCtrl.text += emoji;
-                                              });
-                                              Navigator.pop(ctx);
-                                            },
-                                            child: Center(
-                                              child: Text(emoji, style: const TextStyle(fontSize: 28)),
-                                            ),
-                                          ))
-                                      .toList(),
+                                height: 250,
+                                child: Column(
+                                  children: [
+                                    Container(
+                                      width: 40,
+                                      height: 4,
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey[600],
+                                        borderRadius: BorderRadius.circular(2),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    const Text(
+                                      'Select Emoji',
+                                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Expanded(
+                                      child: GridView.count(
+                                        crossAxisCount: 6,
+                                        children: ['😀', '😂', '😍', '😎', '😢', '🔥', '👍', '❤️', '🎉', '✨', '🙏', '💯', '😊', '🥳', '🤔', '🙌', '💪', '⭐']
+                                            .map((emoji) => InkWell(
+                                                  onTap: () {
+                                                    setState(() {
+                                                      _msgCtrl.text += emoji;
+                                                    });
+                                                    Navigator.pop(ctx);
+                                                  },
+                                                  child: Center(
+                                                    child: Text(emoji, style: const TextStyle(fontSize: 28)),
+                                                  ),
+                                                ))
+                                            .toList(),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             );
@@ -1622,9 +1679,13 @@ class _ConversationScreenState extends State<ConversationScreen> {
                                           Navigator.pop(ctx);
                                           _sendMediaMessage('Contact', 'Shared a Contact');
                                         }),
-                                        _buildAttachmentItem(Icons.insert_drive_file, Colors.purpleAccent, 'Document', () {
+                                        _buildAttachmentItem(Icons.insert_drive_file, Colors.purpleAccent, 'Document', () async {
                                           Navigator.pop(ctx);
-                                          _sendMediaMessage('Document', 'Sample_Document.pdf');
+                                          final picker = ImagePicker();
+                                          final docFile = await picker.pickImage(source: ImageSource.gallery);
+                                          if (docFile != null) {
+                                            _sendMediaMessage('Document', docFile.path);
+                                          }
                                         }),
                                       ],
                                     ),
