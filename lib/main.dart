@@ -1508,43 +1508,52 @@ class _ConversationScreenState extends State<ConversationScreen> {
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
                               Flexible(
-                                child: data['text'].toString().startsWith('[')
-                                    ? Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            data['text'].toString().contains('Gallery') || data['text'].toString().contains('Camera')
-                                                ? Icons.image
-                                                : (data['text'].toString().contains('Location')
+                                child: data['text'].toString().startsWith('[Gallery Image]') || data['text'].toString().startsWith('[Camera Photo]')
+                                    ? ClipRRect(
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Image.file(
+                                          File(data['text'].toString().split('] ').last),
+                                          height: 150,
+                                          width: 200,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (context, error, stackTrace) => const Text('Image not found', style: TextStyle(color: Colors.red)),
+                                        ),
+                                      )
+                                    : (data['text'].toString().startsWith('[')
+                                        ? Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                data['text'].toString().contains('Location')
                                                     ? Icons.location_on
                                                     : (data['text'].toString().contains('Contact')
                                                         ? Icons.person
                                                         : (data['text'].toString().contains('Document')
                                                             ? Icons.insert_drive_file
-                                                            : Icons.attachment))),
-                                            color: isMe ? Colors.white : Colors.black87,
-                                            size: 20,
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Flexible(
-                                            child: Text(
-                                              data['text'] ?? '',
-                                              style: TextStyle(
-                                                fontSize: 15,
-                                                fontWeight: FontWeight.bold,
+                                                            : Icons.attachment)),
                                                 color: isMe ? Colors.white : Colors.black87,
+                                                size: 20,
                                               ),
+                                              const SizedBox(width: 8),
+                                              Flexible(
+                                                child: Text(
+                                                  data['text'] ?? '',
+                                                  style: TextStyle(
+                                                    fontSize: 15,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: isMe ? Colors.white : Colors.black87,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          )
+                                        : Text(
+                                            data['text'] ?? '',
+                                            style: TextStyle(
+                                              fontSize: 15,
+                                              color: isMe ? Colors.white : Colors.black87,
                                             ),
-                                          ),
-                                        ],
-                                      )
-                                    : Text(
-                                        data['text'] ?? '',
-                                        style: TextStyle(
-                                          fontSize: 15,
-                                          color: isMe ? Colors.white : Colors.black87,
-                                        ),
-                                      ),
+                                          )),
                               ),
                               const SizedBox(width: 6),
                               if (isMe)
