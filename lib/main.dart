@@ -1450,19 +1450,75 @@ class _ConversationScreenState extends State<ConversationScreen> {
               },
             ),
           ),
-          Padding(
+                    Padding(
             padding: const EdgeInsets.all(8.0),
             child: Row(
               children: [
                 Expanded(
-                  child: TextField(
-                    controller: _msgCtrl,
-                    decoration: const InputDecoration(hintText: 'Type a message...'),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[200],
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.emoji_emotions_outlined, color: Colors.grey),
+                          onPressed: () {
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Emoji Picker')));
+                          },
+                        ),
+                        Expanded(
+                          child: TextField(
+                            controller: _msgCtrl,
+                            decoration: const InputDecoration(
+                              hintText: 'Message',
+                              border: InputBorder.none,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.attach_file, color: Colors.grey),
+                          onPressed: () {
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Attachment Options')));
+                          },
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.currency_rupee, color: Colors.grey),
+                          onPressed: () {
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('UPI Payment Option')));
+                          },
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.camera_alt_outlined, color: Colors.grey),
+                          onPressed: () {
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Camera Quick Open')));
+                          },
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.send, color: Color(0xFF1E88E5)),
-                  onPressed: _send,
+                const SizedBox(width: 8),
+                CircleAvatar(
+                  radius: 24,
+                  backgroundColor: const Color(0xFF1E88E5),
+                  child: IconButton(
+                    icon: Icon(_msgCtrl.text.isEmpty ? Icons.mic : Icons.send, color: Colors.white),
+                    onPressed: () {
+                      if (_msgCtrl.text.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Voice Recording...')));
+                      } else {
+                        _send();
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
                 ),
               ],
             ),
