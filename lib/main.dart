@@ -25,7 +25,7 @@ class VibeNetApp extends StatelessWidget {
   }
 }
 
-// ফায়ারবেস ইনিশিয়ালাইজেশন ও লোডিং স্ক্রিন হ্যান্ডলার
+// আপনার JSON ফাইল অনুযায়ী ডিরেক্ট ফায়ারবেস কনফিগারেশন
 class FirebaseInitWrapper extends StatefulWidget {
   const FirebaseInitWrapper({super.key});
 
@@ -34,11 +34,25 @@ class FirebaseInitWrapper extends StatefulWidget {
 }
 
 class _FirebaseInitWrapperState extends State<FirebaseInitWrapper> {
-  final Future<FirebaseApp> _initialization = Firebase.initializeApp();
+  late final Future<FirebaseApp> _initialization;
+
+  @override
+  void initState() {
+    super.initState();
+    _initialization = Firebase.initializeApp(
+      options: const FirebaseOptions(
+        apiKey: 'AIzaSyCj7GM2yfp_16tgFpZqaxGU4InlcUgKFA4',
+        appId: '1:328420807383:android:49db8e29dc03664c64d692',
+        messagingSenderId: '328420807383',
+        projectId: 'vibenet-chat',
+        storageBucket: 'vibenet-chat.firebasestorage.app',
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder(
+    return FutureBuilder<FirebaseApp>(
       future: _initialization,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
