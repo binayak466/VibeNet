@@ -498,7 +498,7 @@ class _ProfilePhotoStepScreenState extends State<ProfilePhotoStepScreen> {
 class ProfileNameStepScreen extends StatefulWidget {
   final String myPhone;
   final String? photoUrl;
-  finalString sessionToken;
+  final String sessionToken;
   const ProfileNameStepScreen({super.key, required this.myPhone, this.photoUrl, required this.sessionToken});
 
   @override
