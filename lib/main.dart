@@ -727,6 +727,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
 
   void _checkBiometricOnStartup() async {
     try {
+      await Future.delayed(const Duration(milliseconds: 500));
       final doc = await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).get();
       if (doc.exists && doc.data() != null) {
         final bool isEnabled = doc.data()!['biometricEnabled'] ?? false;
@@ -736,7 +737,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
             options: const AuthenticationOptions(stickyAuth: true, biometricOnly: true),
           );
           if (!authenticated) {
-            // যদি ফিঙ্গারপ্রিন্ট না দেয় বা ক্যানসেল করে তবে অ্যাপ থেকে বের হয়ে যেতে পারে বা আবার ট্রাই করতে বলতে পারে
+            _checkBiometricOnStartup();
           }
         }
       }
