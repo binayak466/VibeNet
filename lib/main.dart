@@ -13,21 +13,126 @@ void main() {
   runApp(const VibeNetApp());
 }
 
+// গ্লোবাল ল্যাঙ্গুয়েজ নোটিফায়ার (ডিফল্ট: English)
+final ValueNotifier<String> appLanguage = ValueNotifier<String>('en');
+
+// ৩টি ভাষার ডিকশনারি
+final Map<String, Map<String, String>> localizedStrings = {
+  'en': {
+    'welcome': 'Welcome to VibeNet',
+    'terms_desc': 'Simple. Secure. Reliable messaging with your saved contacts.',
+    'agree_continue': 'AGREE AND CONTINUE',
+    'enter_phone': 'Enter your phone number',
+    'verify_desc': 'VibeNet will need to verify your phone number.',
+    'phone_hint': 'phone number',
+    'next': 'Next',
+    'verify': 'Next / Verify',
+    'enter_code': 'Enter 6-digit Code (123456)',
+    'invalid_phone': 'Please enter a valid phone number',
+    'wrong_otp': 'Wrong OTP! Enter: 123456',
+    'change_language': 'Language',
+  },
+  'bn': {
+    'welcome': 'VibeNet-এ স্বাগতম',
+    'terms_desc': 'সহজ, নিরাপদ এবং সুরক্ষিত যোগাযোগ শুধুমাত্র সেভ থাকা বন্ধুদের সাথে।',
+    'agree_continue': 'সম্মতি দিন ও এগিয়ে যান',
+    'enter_phone': 'আপনার মোবাইল নম্বর দিন',
+    'verify_desc': 'VibeNet আপনার নম্বর যাচাই করার জন্য একটি ওটিপি পাঠাবে।',
+    'phone_hint': 'ফোন নম্বর',
+    'next': 'পরবর্তী',
+    'verify': 'যাচাই করুন',
+    'enter_code': '৬ সংখ্যার কোড দিন (123456)',
+    'invalid_phone': 'সঠিক মোবাইল নম্বর দিন',
+    'wrong_otp': 'ভুল OTP! সঠিক কোডটি দিন: 123456',
+    'change_language': 'ভাষা পরিবর্তন',
+  },
+  'hi': {
+    'welcome': 'VibeNet में आपका स्वागत है',
+    'terms_desc': 'सरल, सुरक्षित और भरोसेमंद मैसेजिंग आपके संपर्कों के साथ।',
+    'agree_continue': 'स्वीकार करें और जारी रखें',
+    'enter_phone': 'अपना फ़ोन नंबर दर्ज करें',
+    'verify_desc': 'VibeNet को आपका फ़ोन नंबर सत्यापित करना होगा।',
+    'phone_hint': 'फ़ोन नंबर',
+    'next': 'आगे बढ़ें',
+    'verify': 'सत्यापित करें',
+    'enter_code': '6 अंकों का कोड दर्ज करें (123456)',
+    'invalid_phone': 'कृपया सही फ़ोन नंबर दर्ज करें',
+    'wrong_otp': 'गलत OTP! सही कोड दर्ज करें: 123456',
+    'change_language': 'भाषा बदलें',
+  },
+};
+
+String tr(String key) {
+  return localizedStrings[appLanguage.value]?[key] ?? localizedStrings['en']![key]!;
+}
+
+void showLanguageSelector(BuildContext context) {
+  showModalBottomSheet(
+    context: context,
+    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+    builder: (ctx) => Container(
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            'Choose Language / ভাষা নির্বাচন করুন',
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xFF1E88E5)),
+          ),
+          const SizedBox(height: 12),
+          ListTile(
+            leading: const Icon(Icons.language),
+            title: const Text('English'),
+            trailing: appLanguage.value == 'en' ? const Icon(Icons.check, color: Color(0xFF1E88E5)) : null,
+            onTap: () {
+              appLanguage.value = 'en';
+              Navigator.pop(ctx);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.translate),
+            title: const Text('বাংলা (Bengali)'),
+            trailing: appLanguage.value == 'bn' ? const Icon(Icons.check, color: Color(0xFF1E88E5)) : null,
+            onTap: () {
+              appLanguage.value = 'bn';
+              Navigator.pop(ctx);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.translate),
+            title: const Text('हिन्दी (Hindi)'),
+            trailing: appLanguage.value == 'hi' ? const Icon(Icons.check, color: Color(0xFF1E88E5)) : null,
+            onTap: () {
+              appLanguage.value = 'hi';
+              Navigator.pop(ctx);
+            },
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 class VibeNetApp extends StatelessWidget {
   const VibeNetApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'VibeNet',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        fontFamily: 'Roboto',
-        colorSchemeSeed: const Color(0xFF1E88E5),
-        useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFFF8F9FD),
-      ),
-      home: const FirebaseInitWrapper(),
+    return ValueListenableBuilder<String>(
+      valueListenable: appLanguage,
+      builder: (context, lang, child) {
+        return MaterialApp(
+          title: 'VibeNet',
+          debugShowCheckedModeBanner: false,
+          theme: ThemeData(
+            fontFamily: 'Roboto',
+            colorSchemeSeed: const Color(0xFF1E88E5),
+            useMaterial3: true,
+            scaffoldBackgroundColor: const Color(0xFFF8F9FD),
+          ),
+          home: const FirebaseInitWrapper(),
+        );
+      },
     );
   }
 }
@@ -103,35 +208,49 @@ class WelcomeTermsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        actions: [
+          TextButton.icon(
+            onPressed: () => showLanguageSelector(context),
+            icon: const Icon(Icons.language, size: 18, color: Color(0xFF1E88E5)),
+            label: Text(
+              appLanguage.value == 'bn' ? 'বাংলা' : (appLanguage.value == 'hi' ? 'हिन्दी' : 'English'),
+              style: const TextStyle(color: Color(0xFF1E88E5), fontWeight: FontWeight.bold),
+            ),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 24.0),
+          padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 16.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const SizedBox(height: 10),
-              const Text(
-                'Welcome to VibeNet',
-                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF0F4C81)),
+              Text(
+                tr('welcome'),
+                style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Color(0xFF0F4C81)),
               ),
               Column(
                 children: [
                   Container(
-                    width: 180,
-                    height: 180,
+                    width: 170,
+                    height: 170,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: LinearGradient(
                         colors: [const Color(0xFF1E88E5).withOpacity(0.2), const Color(0xFF42A5F5).withOpacity(0.1)],
                       ),
                     ),
-                    child: const Icon(Icons.forum_rounded, size: 90, color: Color(0xFF1E88E5)),
+                    child: const Icon(Icons.forum_rounded, size: 85, color: Color(0xFF1E88E5)),
                   ),
-                  const SizedBox(height: 32),
-                  const Text(
-                    'Simple. Secure. Reliable messaging with your saved contacts.',
+                  const SizedBox(height: 28),
+                  Text(
+                    tr('terms_desc'),
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey, fontSize: 14),
+                    style: const TextStyle(color: Colors.grey, fontSize: 14),
                   ),
                 ],
               ),
@@ -151,9 +270,9 @@ class WelcomeTermsScreen extends StatelessWidget {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       elevation: 1,
                     ),
-                    child: const Text('AGREE AND CONTINUE', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+                    child: Text(tr('agree_continue'), style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 14),
                   const Text('from VibeNet Team', style: TextStyle(color: Colors.grey, fontSize: 12)),
                 ],
               ),
@@ -165,7 +284,7 @@ class WelcomeTermsScreen extends StatelessWidget {
   }
 }
 
-// --- ২. কান্ট্রি সিলেক্ট ও সিঙ্গেল ডিভাইস লগইন সেশন ---
+// --- ২. কান্ট্রি সিলেক্ট ও ফোন নম্বর লগইন স্ক্রিন (Language অপশন সহ) ---
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -201,7 +320,7 @@ class _LoginScreenState extends State<LoginScreen> {
   void _sendOtp() {
     final phone = _phoneController.text.trim();
     if (phone.length < 7) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('সঠিক মোবাইল নম্বর দিন')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('invalid_phone'))));
       return;
     }
 
@@ -215,7 +334,7 @@ class _LoginScreenState extends State<LoginScreen> {
           _isLoading = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('OTP পাঠানো হয়েছে! কোড দিন: 123456')),
+          SnackBar(content: Text(appLanguage.value == 'bn' ? 'OTP পাঠানো হয়েছে! কোড দিন: 123456' : 'OTP sent! Use code: 123456')),
         );
       }
     });
@@ -224,9 +343,7 @@ class _LoginScreenState extends State<LoginScreen> {
   void _verifyOtp() async {
     final otp = _otpController.text.trim();
     if (otp != '123456') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ভুল OTP! সঠিক কোডটি দিন: 123456')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('wrong_otp'))));
       return;
     }
 
@@ -241,8 +358,6 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       final uid = userCred.user?.uid ?? FirebaseAuth.instance.currentUser!.uid;
-
-      // নতুন ডিভাইসের জন্য ইউনিক সেশন টোকেন তৈরি (যাতে অন্য ডিভাইসের লগইন বন্ধ হয়ে যায়)
       final newSessionToken = 'session_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(999999)}';
 
       await FirebaseFirestore.instance.collection('users').doc(uid).set({
@@ -251,7 +366,6 @@ class _LoginScreenState extends State<LoginScreen> {
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
-      // ফোন নম্বরের মেইন ডকুমেন্টে সেশন টোকেন আপডেট করা
       await FirebaseFirestore.instance.collection('users').doc(_fullPhoneNumber).set({
         'phone': _fullPhoneNumber,
         'activeSessionToken': newSessionToken,
@@ -287,20 +401,28 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Enter your phone number', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+        title: Text(tr('enter_phone'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
         centerTitle: true,
         backgroundColor: Colors.white,
         foregroundColor: const Color(0xFF1E88E5),
         elevation: 0,
+        actions: [
+          // ভাষা পরিবর্তন করার বাটন
+          IconButton(
+            icon: const Icon(Icons.translate_rounded, color: Color(0xFF1E88E5)),
+            tooltip: tr('change_language'),
+            onPressed: () => showLanguageSelector(context),
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
         child: Column(
           children: [
-            const Text(
-              'VibeNet will need to verify your phone number.',
+            Text(
+              tr('verify_desc'),
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.black87, fontSize: 14),
+              style: const TextStyle(color: Colors.black87, fontSize: 14),
             ),
             const SizedBox(height: 28),
 
@@ -348,10 +470,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: _phoneController,
                     keyboardType: TextInputType.phone,
                     enabled: !_isOtpSent,
-                    decoration: const InputDecoration(
-                      hintText: 'phone number',
-                      enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF1E88E5), width: 1.5)),
-                      focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF1E88E5), width: 2)),
+                    decoration: InputDecoration(
+                      hintText: tr('phone_hint'),
+                      enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF1E88E5), width: 1.5)),
+                      focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF1E88E5), width: 2)),
                     ),
                   ),
                 ),
@@ -365,7 +487,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 controller: _otpController,
                 keyboardType: TextInputType.number,
                 textAlign: TextAlign.center,
-                decoration: const InputDecoration(labelText: 'Enter 6-digit Code (123456)', border: OutlineInputBorder()),
+                decoration: InputDecoration(labelText: tr('enter_code'), border: const OutlineInputBorder()),
               ),
               const SizedBox(height: 24),
               ElevatedButton(
@@ -378,7 +500,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 child: _isLoading
                     ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : const Text('Next / Verify', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                    : Text(tr('verify'), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
               ),
             ] else ...[
               ElevatedButton(
@@ -391,9 +513,20 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 child: _isLoading
                     ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : const Text('Next', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                    : Text(tr('next'), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
               ),
             ],
+            const SizedBox(height: 24),
+
+            // টেক্সট আকারেও নিচে ভাষা পরিবর্তনের অপশন
+            TextButton.icon(
+              onPressed: () => showLanguageSelector(context),
+              icon: const Icon(Icons.language, size: 16, color: Colors.grey),
+              label: Text(
+                '${tr('change_language')}: ${appLanguage.value == 'bn' ? 'বাংলা' : (appLanguage.value == 'hi' ? 'हिन्दी' : 'English')}',
+                style: const TextStyle(color: Colors.grey, fontSize: 13),
+              ),
+            ),
           ],
         ),
       ),
@@ -662,7 +795,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     _listenToSessionChanges();
   }
 
-  // যদি এই নম্বর দিয়ে অন্য ফোনে লগইন হয়, তবে এই ফোন থেকে স্বয়ংক্রিয়ভাবে লগআউট হয়ে যাবে
   void _listenToSessionChanges() {
     FirebaseFirestore.instance.collection('users').doc(widget.myPhone).snapshots().listen((snapshot) {
       if (snapshot.exists && snapshot.data() != null) {
@@ -723,7 +855,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
   }
 }
 
-// --- ড্যাশবোর্ড বডি (শুধুমাত্র সেভ থাকা কনট্যাক্টদের সাথে চ্যাট) ---
+// --- ড্যাশবোর্ড বডি ---
 class DashboardHomeBody extends StatefulWidget {
   final String myPhone;
   const DashboardHomeBody({super.key, required this.myPhone});
@@ -803,7 +935,6 @@ class _DashboardHomeBodyState extends State<DashboardHomeBody> {
     }
   }
 
-  // শুধুমাত্র ফোনের সেভ থাকা কন্টাক্ট থেকে চ্যাট সিলেক্ট করার স্ক্রিন
   void _openContactsOnlyChat() async {
     final status = await Permission.contacts.request();
     if (!status.isGranted) {
@@ -815,12 +946,9 @@ class _DashboardHomeBodyState extends State<DashboardHomeBody> {
       return;
     }
 
-    // ফোনের সেভ থাকা নম্বর রিড করা
     final phoneContacts = await FlutterContacts.getContacts(withProperties: true, withPhoto: false);
-
-    // ফায়ারবেসের রেজিস্টার্ড ইউজারদের তালিকা
     final usersSnapshot = await FirebaseFirestore.instance.collection('users').get();
-    final registeredPhones = <String, String>{}; // phone -> name
+    final registeredPhones = <String, String>{};
 
     for (var doc in usersSnapshot.docs) {
       final data = doc.data();
@@ -829,14 +957,13 @@ class _DashboardHomeBodyState extends State<DashboardHomeBody> {
       if (p != null) registeredPhones[p] = n;
     }
 
-    // ফিল্টার: যাদের নম্বর আপনার ফোনে সেভ আছে এবং যারা VibeNet অ্যাপ ব্যবহার করে
     final List<Map<String, String>> matchedContacts = [];
 
     for (var contact in phoneContacts) {
       for (var phoneObj in contact.phones) {
         var cleanNumber = phoneObj.number.replaceAll(RegExp(r'\s+|-|\(|\)'), '');
         if (!cleanNumber.startsWith('+')) {
-          cleanNumber = '+91$cleanNumber'; // ডিফল্ট কান্ট্রি কোড
+          cleanNumber = '+91$cleanNumber';
         }
 
         if (registeredPhones.containsKey(cleanNumber) && cleanNumber != widget.myPhone) {
@@ -851,7 +978,6 @@ class _DashboardHomeBodyState extends State<DashboardHomeBody> {
 
     if (!mounted) return;
 
-    // সেভ থাকা বন্ধুদের লিস্ট শো করা
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
@@ -916,7 +1042,6 @@ class _DashboardHomeBodyState extends State<DashboardHomeBody> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Top Bar & Live Weather
             Container(
               margin: const EdgeInsets.all(16),
               padding: const EdgeInsets.all(18),
@@ -964,7 +1089,6 @@ class _DashboardHomeBodyState extends State<DashboardHomeBody> {
               ),
             ),
 
-            // CHATS Header (যার সাথে চ্যাট হয়েছে কেবল সেগুলো দেখাবে)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 6.0),
               child: Row(
@@ -1081,6 +1205,13 @@ class _WhatsAppProfileScreenState extends State<WhatsAppProfileScreen> {
             leading: CircleAvatar(radius: 30, backgroundImage: _photoUrl.isNotEmpty ? NetworkImage(_photoUrl) : null, child: _photoUrl.isEmpty ? const Icon(Icons.person) : null),
             title: Text(_userName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
             subtitle: Text(_about),
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.translate, color: Color(0xFF1E88E5)),
+            title: const Text('App Language / ভাষা'),
+            subtitle: Text(appLanguage.value == 'bn' ? 'বাংলা' : (appLanguage.value == 'hi' ? 'हिन्दी' : 'English')),
+            onTap: () => showLanguageSelector(context),
           ),
           const Divider(),
           ListTile(
