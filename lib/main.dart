@@ -28,7 +28,7 @@ final ValueNotifier<ThemeMode> appThemeMode = ValueNotifier<ThemeMode>(ThemeMode
 final Map<String, Map<String, String>> localizedStrings = {
   'en': {
     'welcome': 'Welcome to VibeNet',
-    'terms_desc': 'Simple. Secure. Reliable messaging with your saved contacts.',
+    'terms_desc': 'Simple. Secure. All-in-one messaging, social & payments.',
     'agree_continue': 'AGREE AND CONTINUE',
     'enter_phone': 'Enter your phone number',
     'verify_desc': 'VibeNet will need to verify your phone number.',
@@ -41,7 +41,7 @@ final Map<String, Map<String, String>> localizedStrings = {
   },
   'bn': {
     'welcome': 'VibeNet-এ স্বাগতম',
-    'terms_desc': 'সহজ, নিরাপদ এবং সুরক্ষিত যোগাযোগ শুধুমাত্র সেভ থাকা বন্ধুদের সাথে।',
+    'terms_desc': 'চ্যাট, সোশ্যাল ফিড এবং পেমেন্ট একসাথে একটি অ্যাপে।',
     'agree_continue': 'সম্মতি দিন ও এগিয়ে যান',
     'enter_phone': 'আপনার মোবাইল নম্বর দিন',
     'verify_desc': 'VibeNet আপনার নম্বর যাচাই করার জন্য একটি ওটিপি পাঠাবে।',
@@ -54,7 +54,7 @@ final Map<String, Map<String, String>> localizedStrings = {
   },
   'hi': {
     'welcome': 'VibeNet में आपका स्वागत है',
-    'terms_desc': 'सरल, सुरक्षित और भरोसेमंद मैसेजिंग आपके संपर्कों के साथ।',
+    'terms_desc': 'चैट, सोशल फीड और भुगतान एक ही ऐप में।',
     'agree_continue': 'स्वीकार करें और जारी रखें',
     'enter_phone': 'अपना फ़ोन नंबर दर्ज करें',
     'verify_desc': 'VibeNet को आपका फ़ोन नंबर सत्यापित करना होगा।',
@@ -537,6 +537,73 @@ class _ProfileNameStepScreenState extends State<ProfileNameStepScreen> {
   }
 }
 
+class ContactsScreen extends StatelessWidget {
+  final String myPhone;
+  const ContactsScreen({super.key, required this.myPhone});
+
+  Future<void> _fetchAndShowContacts(BuildContext context) async {
+    if (await Permission.contacts.request().isGranted) {
+      final contacts = await FlutterContacts.getContacts(withProperties: true);
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+        builder: (ctx) => Container(
+          height: MediaQuery.of(context).size.height * 0.7,
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              const Text('All Phone Contacts', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: contacts.length,
+                  itemBuilder: (context, index) {
+                    final contact = contacts[index];
+                    final phoneNum = contact.phones.isNotEmpty ? contact.phones.first.number : 'No number';
+                    return ListTile(
+                      leading: const CircleAvatar(child: Icon(Icons.person)),
+                      title: Text(contact.displayName),
+                      subtitle: Text(phoneNum),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.chat, color: Color(0xFF1E88E5)),
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (c) => ConversationScreen(
+                                myPhone: myPhone,
+                                receiverPhone: phoneNum,
+                                receiverName: contact.displayName,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Contact permission denied')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FloatingActionButton(
+      backgroundColor: const Color(0xFF1E88E5),
+      child: const Icon(Icons.add, color: Colors.white),
+      onPressed: () => _fetchAndShowContacts(context),
+    );
+  }
+}
+
 class MainDashboardScreen extends StatefulWidget {
   final String myPhone;
   final String currentSessionToken;
@@ -565,24 +632,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
         }
       }
     });
-  }
-
-  void _syncContacts() async {
-    if (await Permission.contacts.request().isGranted) {
-      final contacts = await FlutterContacts.getContacts(withProperties: true);
-      for (var c in contacts) {
-        if (c.phones.isNotEmpty) {
-          String rawPhone = c.phones.first.number.replaceAll(RegExp(r'\s+'), '');
-          if (!rawPhone.startsWith('+')) {
-            rawPhone = '+91$rawPhone';
-          }
-          await FirebaseFirestore.instance.collection('users').where('phone', isEqualTo: rawPhone).get();
-        }
-      }
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Contacts synced successfully!')));
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Contact permission denied')));
-    }
   }
 
   @override
@@ -674,17 +723,14 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
               ),
             ),
 
-            // Status Stories Row with Sync Plus Icon
+            // Status Stories Row
             SizedBox(
               height: 90,
               child: ListView(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 children: [
-                  GestureDetector(
-                    onTap: _syncContacts,
-                    child: _buildStatusItem('Add Friend', Icons.add),
-                  ),
+                  _buildStatusItem('My Status', Icons.add),
                   _buildStatusItem('Rahul', null),
                   _buildStatusItem('Priya', null),
                   _buildStatusItem('Anita', null),
@@ -711,7 +757,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                         }).toList();
 
                         if (users.isEmpty) {
-                          return const Center(child: Text('No contacts found'));
+                          return const Center(child: Text('No registered contacts found'));
                         }
 
                         return ListView.builder(
@@ -736,18 +782,19 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                         );
                       },
                     )
-                  : (_currentIndex == 4
-                      ? ProfileScreen(myPhone: widget.myPhone)
-                      : Center(
-                          child: Text(
-                            _currentIndex == 1 ? 'News Feed Section' : (_currentIndex == 2 ? 'Create Post' : 'Reels Section'),
-                            style: const TextStyle(fontSize: 16),
-                          ),
-                        )),
+                  : (_currentIndex == 1
+                      ? const Center(child: Text('Facebook Style News Feed', style: TextStyle(fontSize: 16)))
+                      : (_currentIndex == 2
+                          ? const Center(child: Text('Create Post Section', style: TextStyle(fontSize: 16)))
+                          : (_currentIndex == 3
+                              ? const Center(child: Text('Reels & Videos', style: TextStyle(fontSize: 16)))
+                              : ProfileScreen(myPhone: widget.myPhone)))),
             ),
           ],
         ),
       ),
+      // Floating Action Button for All Contacts / SMS
+      floatingActionButton: _currentIndex == 0 ? ContactsScreen(myPhone: widget.myPhone) : null,
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
@@ -825,7 +872,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             photoUrl = data?['photoUrl'] ?? '';
           }
 
-          return Padding(
+          return SingleChildScrollView(
             padding: const EdgeInsets.all(24.0),
             child: Column(
               children: [
@@ -860,7 +907,47 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   maskPhoneNumber(widget.myPhone),
                   style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
-                const SizedBox(height: 30),
+                const SizedBox(height: 20),
+                // UPI Payment Hub Section
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E88E5).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFF1E88E5), width: 1),
+                  ),
+                  child: Column(
+                    children: [
+                      const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.account_balance_wallet, color: Color(0xFF1E88E5)),
+                          SizedBox(width: 8),
+                          Text('VibeNet UPI & Pay', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          ElevatedButton.icon(
+                            onPressed: () {},
+                            icon: const Icon(Icons.qr_code_scanner, size: 18),
+                            label: const Text('Scan QR'),
+                            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E88E5), foregroundColor: Colors.white),
+                          ),
+                          ElevatedButton.icon(
+                            onPressed: () {},
+                            icon: const Icon(Icons.send, size: 18),
+                            label: const Text('Pay UPI'),
+                            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E88E5), foregroundColor: Colors.white),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
                 ListTile(
                   leading: const Icon(Icons.language, color: Color(0xFF1E88E5)),
                   title: const Text('Change Language / ভাষা পরিবর্তন'),
