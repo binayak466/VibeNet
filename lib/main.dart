@@ -848,7 +848,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     );
   }
 }
-
 class ProfileScreen extends StatefulWidget {
   final String myPhone;
   const ProfileScreen({super.key, required this.myPhone});
@@ -859,6 +858,8 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   String? _newPhoto;
+  String _profilePhotoPrivacy = 'everyone'; // everyone, contacts, nobody
+  String _lastSeenPrivacy = 'everyone';
 
   Future<void> _updateProfilePhoto() async {
     final picker = ImagePicker();
@@ -873,6 +874,167 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     }
   }
+
+  void _showPrivacyDialog(String title, String currentVal, Function(String) onSelected) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            RadioListTile<String>(
+              title: const Text('Everyone'),
+              value: 'everyone',
+              groupValue: currentVal,
+              onChanged: (v) {
+                onSelected(v!);
+                Navigator.pop(ctx);
+              },
+            ),
+            RadioListTile<String>(
+              title: const Text('My contacts'),
+              value: 'contacts',
+              groupValue: currentVal,
+              onChanged: (v) {
+                onSelected(v!);
+                Navigator.pop(ctx);
+              },
+            ),
+            RadioListTile<String>(
+              title: const Text('Only me (Nobody)'),
+              value: 'nobody',
+              groupValue: currentVal,
+              onChanged: (v) {
+                onSelected(v!);
+                Navigator.pop(ctx);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: StreamBuilder<DocumentSnapshot>(
+        stream: FirebaseFirestore.instance.collection('users').doc(widget.myPhone).snapshots(),
+        builder: (context, snapshot) {
+          String photoUrl = '';
+          if (snapshot.hasData && snapshot.data!.exists) {
+            final data = snapshot.data!.data() as Map<String, dynamic>?;
+            photoUrl = data?['photoUrl'] ?? '';
+            _profilePhotoPrivacy = data?['photoPrivacy'] ?? 'everyone';
+            _lastSeenPrivacy = data?['lastSeenPrivacy'] ?? 'everyone';
+          }
+
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              children: [
+                const SizedBox(height: 20),
+                GestureDetector(
+                  onTap: _updateProfilePhoto,
+                  child: Stack(
+                    children: [
+                      CircleAvatar(
+                        radius: 50,
+                        backgroundImage: (_newPhoto != null && _newPhoto!.isNotEmpty)
+                            ? FileImage(File(_newPhoto!)) as ImageProvider
+                            : (photoUrl.isNotEmpty
+                                ? (photoUrl.startsWith('http') ? NetworkImage(photoUrl) : FileImage(File(photoUrl)) as ImageProvider)
+                                : null),
+                        child: (_newPhoto == null && photoUrl.isEmpty) ? const Icon(Icons.person, size: 50, color: Colors.white) : null,
+                      ),
+                      const Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: CircleAvatar(
+                          radius: 16,
+                          backgroundColor: Color(0xFF1E88E5),
+                          child: Icon(Icons.camera_alt, size: 16, color: Colors.white),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  maskPhoneNumber(widget.myPhone),
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 20),
+
+                // Privacy Settings Section
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('Privacy Settings', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E88E5))),
+                ),
+                const SizedBox(height: 8),
+                ListTile(
+                  leading: const Icon(Icons.visibility, color: Color(0xFF1E88E5)),
+                  title: const Text('Last Seen'),
+                  subtitle: Text(_lastSeenPrivacy.toUpperCase()),
+                  onTap: () {
+                    _showPrivacyDialog('Last Seen Privacy', _lastSeenPrivacy, (val) async {
+                      setState(() => _lastSeenPrivacy = val);
+                      await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({'lastSeenPrivacy': val});
+                    });
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.account_circle, color: Color(0xFF1E88E5)),
+                  title: const Text('Profile Photo Privacy'),
+                  subtitle: Text(_profilePhotoPrivacy.toUpperCase()),
+                  onTap: () {
+                    _showPrivacyDialog('Profile Photo Privacy', _profilePhotoPrivacy, (val) async {
+                      setState(() => _profilePhotoPrivacy = val);
+                      await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({'photoPrivacy': val});
+                    });
+                  },
+                ),
+                const Divider(),
+
+                ListTile(
+                  leading: const Icon(Icons.language, color: Color(0xFF1E88E5)),
+                  title: const Text('Change Language / ভাষা পরিবর্তন'),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  onTap: () => showLanguageSelector(context),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.brightness_6, color: Color(0xFF1E88E5)),
+                  title: const Text('Dark / Light Mode'),
+                  trailing: Switch(
+                    value: appThemeMode.value == ThemeMode.dark,
+                    onChanged: (isDark) {
+                      appThemeMode.value = isDark ? ThemeMode.dark : ThemeMode.light;
+                    },
+                  ),
+                ),
+                const Divider(),
+                ListTile(
+                  leading: const Icon(Icons.logout, color: Colors.red),
+                  title: const Text('Log Out', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                  onTap: () async {
+                    await FirebaseAuth.instance.signOut();
+                    Navigator.pushAndRemoveUntil(
+                      context,
+                      MaterialPageRoute(builder: (c) => const WelcomeTermsScreen()),
+                      (r) => false,
+                    );
+                  },
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
 
   @override
   Widget build(BuildContext context) {
