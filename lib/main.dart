@@ -9,6 +9,7 @@ import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:file_picker/file_picker.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -1690,10 +1691,16 @@ class _ConversationScreenState extends State<ConversationScreen> {
                                         }),
                                         _buildAttachmentItem(Icons.insert_drive_file, Colors.purpleAccent, 'Document', () async {
                                           Navigator.pop(ctx);
-                                          final picker = ImagePicker();
-                                          final docFile = await picker.pickImage(source: ImageSource.gallery);
-                                          if (docFile != null) {
-                                            _sendMediaMessage('Document', docFile.path);
+                                          try {
+                                            FilePickerResult? result = await FilePicker.platform.pickFiles();
+                                            if (result != null && result.files.single.path != null) {
+                                              String fileName = result.files.single.name;
+                                              _sendMediaMessage('Document', fileName);
+                                            }
+                                          } catch (e) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(content: Text('File picker error: $e')),
+                                            );
                                           }
                                         }),
                                       ],
