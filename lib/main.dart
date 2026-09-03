@@ -13,10 +13,8 @@ void main() {
   runApp(const VibeNetApp());
 }
 
-// গ্লোবাল ল্যাঙ্গুয়েজ নোটিফায়ার (ডিফল্ট: English)
 final ValueNotifier<String> appLanguage = ValueNotifier<String>('en');
 
-// ৩টি ভাষার ডিকশনারি
 final Map<String, Map<String, String>> localizedStrings = {
   'en': {
     'welcome': 'Welcome to VibeNet',
@@ -284,7 +282,7 @@ class WelcomeTermsScreen extends StatelessWidget {
   }
 }
 
-// --- ২. কান্ট্রি সিলেক্ট ও ফোন নম্বর লগইন স্ক্রিন (Language অপশন সহ) ---
+// --- ২. কান্ট্রি সিলেক্ট ও ফোন নম্বর লগইন স্ক্রিন ---
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -407,7 +405,6 @@ class _LoginScreenState extends State<LoginScreen> {
         foregroundColor: const Color(0xFF1E88E5),
         elevation: 0,
         actions: [
-          // ভাষা পরিবর্তন করার বাটন
           IconButton(
             icon: const Icon(Icons.translate_rounded, color: Color(0xFF1E88E5)),
             tooltip: tr('change_language'),
@@ -518,7 +515,6 @@ class _LoginScreenState extends State<LoginScreen> {
             ],
             const SizedBox(height: 24),
 
-            // টেক্সট আকারেও নিচে ভাষা পরিবর্তনের অপশন
             TextButton.icon(
               onPressed: () => showLanguageSelector(context),
               icon: const Icon(Icons.language, size: 16, color: Colors.grey),
@@ -703,6 +699,8 @@ class _ProfileNameStepScreenState extends State<ProfileNameStepScreen> {
         'photoUrl': widget.photoUrl ?? '',
         'about': 'Hey there! I am using VibeNet.',
         'sessionToken': widget.sessionToken,
+        'lastSeen': 'Everyone',
+        'readReceipts': true,
         'createdAt': FieldValue.serverTimestamp(),
       };
 
@@ -776,7 +774,7 @@ class _ProfileNameStepScreenState extends State<ProfileNameStepScreen> {
   }
 }
 
-// --- ৫. ড্যাশবোর্ড স্ক্রিন (সিঙ্গেল ডিভাইস সেশন লিসেনার সহ) ---
+// --- ৫. ড্যাশবোর্ড স্ক্রিন ---
 class MainDashboardScreen extends StatefulWidget {
   final String myPhone;
   final String currentSessionToken;
@@ -1163,7 +1161,7 @@ class _DashboardHomeBodyState extends State<DashboardHomeBody> {
   }
 }
 
-// --- ৬. Settings & Profile Screen ---
+// --- ৬. সম্পূর্ণ WhatsApp স্টাইল Profile & Settings Screen ---
 class WhatsAppProfileScreen extends StatefulWidget {
   final String myPhone;
   const WhatsAppProfileScreen({super.key, required this.myPhone});
@@ -1174,58 +1172,297 @@ class WhatsAppProfileScreen extends StatefulWidget {
 
 class _WhatsAppProfileScreenState extends State<WhatsAppProfileScreen> {
   String _userName = 'VibeNet User';
-  String _about = 'Available';
+  String _about = 'Hey there! I am using VibeNet.';
   String _photoUrl = '';
+  String _lastSeenOption = 'Everyone';
+  bool _readReceipts = true;
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    _loadUserData();
   }
 
-  void _loadData() async {
+  void _loadUserData() async {
     final doc = await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).get();
     if (doc.exists && doc.data() != null) {
       setState(() {
         _userName = doc.data()!['name'] ?? _userName;
         _about = doc.data()!['about'] ?? _about;
         _photoUrl = doc.data()!['photoUrl'] ?? '';
+        _lastSeenOption = doc.data()!['lastSeen'] ?? 'Everyone';
+        _readReceipts = doc.data()!['readReceipts'] ?? true;
       });
     }
+  }
+
+  void _openPrivacySettings() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) => Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Privacy Settings', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1E88E5))),
+              const SizedBox(height: 16),
+              const Text('Who can see my personal info', style: TextStyle(fontSize: 13, color: Colors.grey, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Last seen and online'),
+                subtitle: Text(_lastSeenOption),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  _showChoiceDialog('Last seen and online', ['Everyone', 'My contacts', 'Nobody'], _lastSeenOption, (val) {
+                    setState(() => _lastSeenOption = val);
+                    setModalState(() {});
+                    FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({'lastSeen': val});
+                  });
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Profile photo'),
+                subtitle: const Text('Everyone'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {},
+              ),
+              const Divider(height: 1),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('About'),
+                subtitle: const Text('Everyone'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {},
+              ),
+              const Divider(height: 1),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Read receipts (Blue ticks)'),
+                subtitle: const Text('If turned off, you won\'t send or receive Read receipts.'),
+                value: _readReceipts,
+                activeColor: const Color(0xFF1E88E5),
+                onChanged: (val) {
+                  setState(() => _readReceipts = val);
+                  setModalState(() {});
+                  FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({'readReceipts': val});
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showChoiceDialog(String title, List<String> options, String currentVal, Function(String) onSelect) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: options.map((opt) {
+            return RadioListTile<String>(
+              title: Text(opt),
+              value: opt,
+              groupValue: currentVal,
+              activeColor: const Color(0xFF1E88E5),
+              onChanged: (v) {
+                if (v != null) {
+                  onSelect(v);
+                  Navigator.pop(ctx);
+                }
+              },
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  void _editNameDialog() {
+    final ctrl = TextEditingController(text: _userName);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Enter your name'),
+        content: TextField(controller: ctrl, decoration: const InputDecoration(hintText: 'Your Name')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              if (ctrl.text.trim().isNotEmpty) {
+                setState(() => _userName = ctrl.text.trim());
+                await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({'name': _userName});
+                final uid = FirebaseAuth.instance.currentUser?.uid;
+                if (uid != null) {
+                  await FirebaseFirestore.instance.collection('users').doc(uid).update({'name': _userName});
+                }
+                if (mounted) Navigator.pop(ctx);
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(title: const Text('Settings', style: TextStyle(fontWeight: FontWeight.bold)), backgroundColor: Colors.white),
-      body: ListView(
-        children: [
-          ListTile(
-            leading: CircleAvatar(radius: 30, backgroundImage: _photoUrl.isNotEmpty ? NetworkImage(_photoUrl) : null, child: _photoUrl.isEmpty ? const Icon(Icons.person) : null),
-            title: Text(_userName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-            subtitle: Text(_about),
-          ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.translate, color: Color(0xFF1E88E5)),
-            title: const Text('App Language / ভাষা'),
-            subtitle: Text(appLanguage.value == 'bn' ? 'বাংলা' : (appLanguage.value == 'hi' ? 'हिन्दी' : 'English')),
-            onTap: () => showLanguageSelector(context),
-          ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.logout, color: Colors.red),
-            title: const Text('Log out', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-            onTap: () async {
-              await FirebaseAuth.instance.signOut();
-              if (context.mounted) {
-                Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => const WelcomeTermsScreen()));
-              }
-            },
-          )
+      appBar: AppBar(
+        title: const Text('Settings', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black87,
+        elevation: 0,
+        actions: [
+          IconButton(icon: const Icon(Icons.search), onPressed: () {}),
         ],
       ),
+      body: ListView(
+        children: [
+          // Profile Card Header
+          InkWell(
+            onTap: _editNameDialog,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              child: Row(
+                children: [
+                  Stack(
+                    children: [
+                      CircleAvatar(
+                        radius: 34,
+                        backgroundColor: Colors.grey.shade200,
+                        backgroundImage: _photoUrl.isNotEmpty ? NetworkImage(_photoUrl) : null,
+                        child: _photoUrl.isEmpty ? const Icon(Icons.person, size: 36, color: Colors.grey) : null,
+                      ),
+                      const Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: CircleAvatar(
+                          radius: 11,
+                          backgroundColor: Color(0xFF1E88E5),
+                          child: Icon(Icons.edit, size: 12, color: Colors.white),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(_userName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 4),
+                        Text(_about, style: const TextStyle(fontSize: 14, color: Colors.grey)),
+                        const SizedBox(height: 2),
+                        Text(widget.myPhone, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.qr_code, color: Color(0xFF1E88E5)),
+                    onPressed: () {},
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const Divider(thickness: 1, height: 1),
+
+          // সমস্ত সেটিংস অপশন
+          _buildSettingsTile(
+            icon: Icons.key_outlined,
+            title: 'Account',
+            subtitle: 'Security notifications, change number',
+            onTap: () {},
+          ),
+          _buildSettingsTile(
+            icon: Icons.lock_outline,
+            title: 'Privacy',
+            subtitle: 'Last seen, profile photo, read receipts',
+            onTap: _openPrivacySettings,
+          ),
+          _buildSettingsTile(
+            icon: Icons.chat_outlined,
+            title: 'Chats',
+            subtitle: 'Theme, wallpapers, chat history',
+            onTap: () {},
+          ),
+          _buildSettingsTile(
+            icon: Icons.notifications_none_outlined,
+            title: 'Notifications',
+            subtitle: 'Message, group & call tones',
+            onTap: () {},
+          ),
+          _buildSettingsTile(
+            icon: Icons.data_usage_outlined,
+            title: 'Storage and data',
+            subtitle: 'Network usage, auto-download',
+            onTap: () {},
+          ),
+          _buildSettingsTile(
+            icon: Icons.translate,
+            title: 'App Language / ভাষা',
+            subtitle: appLanguage.value == 'bn' ? 'বাংলা' : (appLanguage.value == 'hi' ? 'हिन्दी' : 'English'),
+            onTap: () => showLanguageSelector(context),
+          ),
+          _buildSettingsTile(
+            icon: Icons.help_outline,
+            title: 'Help',
+            subtitle: 'Help center, contact us, privacy policy',
+            onTap: () {},
+          ),
+          _buildSettingsTile(
+            icon: Icons.group_add_outlined,
+            title: 'Invite a friend',
+            subtitle: 'Share VibeNet with friends',
+            onTap: () {},
+          ),
+
+          const SizedBox(height: 20),
+
+          // Logout বাটন
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20.0),
+            child: OutlinedButton.icon(
+              onPressed: () async {
+                await FirebaseAuth.instance.signOut();
+                if (context.mounted) {
+                  Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => const WelcomeTermsScreen()));
+                }
+              },
+              icon: const Icon(Icons.logout, color: Colors.red),
+              label: const Text('Log out', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Colors.red),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ),
+          const SizedBox(height: 30),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSettingsTile({required IconData icon, required String title, required String subtitle, required VoidCallback onTap}) {
+    return ListTile(
+      leading: Icon(icon, color: Colors.grey.shade700),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+      subtitle: Text(subtitle, style: const TextStyle(fontSize: 13, color: Colors.grey)),
+      onTap: onTap,
     );
   }
 }
