@@ -8,6 +8,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:local_auth/local_auth.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -517,6 +518,7 @@ class _ProfileNameStepScreenState extends State<ProfileNameStepScreen> {
       'sessionToken': widget.sessionToken,
       'activeSessionToken': widget.sessionToken,
       'lastActive': FieldValue.serverTimestamp(),
+      'biometricEnabled': false,
     };
     await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).set(data, SetOptions(merge: true));
 
@@ -702,12 +704,14 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
   String _searchQuery = '';
   bool _isSearching = false;
   final TextEditingController _searchController = TextEditingController();
+  final LocalAuthentication _localAuth = LocalAuthentication();
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _updateActiveStatus();
+    _checkBiometricOnStartup();
 
     FirebaseFirestore.instance.collection('users').doc(widget.myPhone).snapshots().listen((doc) {
       if (doc.exists && doc.data() != null) {
@@ -721,6 +725,24 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
     });
   }
 
+  void _checkBiometricOnStartup() async {
+    try {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).get();
+      if (doc.exists && doc.data() != null) {
+        final bool isEnabled = doc.data()!['biometricEnabled'] ?? false;
+        if (isEnabled) {
+          bool authenticated = await _localAuth.authenticate(
+            localizedReason: 'Please authenticate to unlock VibeNet',
+            options: const AuthenticationOptions(stickyAuth: true, biometricOnly: true),
+          );
+          if (!authenticated) {
+            // যদি ফিঙ্গারপ্রিন্ট না দেয় বা ক্যানসেল করে তবে অ্যাপ থেকে বের হয়ে যেতে পারে বা আবার ট্রাই করতে বলতে পারে
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
@@ -731,6 +753,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _updateActiveStatus();
+      _checkBiometricOnStartup();
     }
   }
 
@@ -953,6 +976,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? _newPhoto;
   String _profilePhotoPrivacy = 'everyone';
   String _lastSeenPrivacy = 'everyone';
+  bool _isBiometricLocked = false;
 
   Future<void> _updateProfilePhoto() async {
     final picker = ImagePicker();
@@ -1021,6 +1045,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             photoUrl = data?['photoUrl'] ?? '';
             _profilePhotoPrivacy = data?['photoPrivacy'] ?? 'everyone';
             _lastSeenPrivacy = data?['lastSeenPrivacy'] ?? 'everyone';
+            _isBiometricLocked = data?['biometricEnabled'] ?? false;
           }
 
           return SingleChildScrollView(
@@ -1126,6 +1151,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({'photoPrivacy': val});
                     });
                   },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.fingerprint, color: Color(0xFF1E88E5)),
+                  title: const Text('Biometric App Lock'),
+                  subtitle: Text(_isBiometricLocked ? 'Enabled' : 'Disabled'),
+                  trailing: Switch(
+                    value: _isBiometricLocked,
+                    onChanged: (val) async {
+                      setState(() {
+                        _isBiometricLocked = val;
+                      });
+                      await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({
+                        'biometricEnabled': val,
+                      });
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(val ? 'Biometric Lock Enabled' : 'Biometric Lock Disabled')),
+                        );
+                      }
+                    },
+                  ),
                 ),
                 const Divider(),
 
