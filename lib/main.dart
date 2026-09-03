@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 void main() async {
@@ -24,12 +25,14 @@ class VibeNetApp extends StatelessWidget {
         colorSchemeSeed: const Color(0xFF6750A4),
         useMaterial3: true,
       ),
-      home: const LoginScreen(),
+      home: FirebaseAuth.instance.currentUser != null
+          ? ChatListScreen(myPhone: FirebaseAuth.instance.currentUser!.phoneNumber ?? '')
+          : const LoginScreen(),
     );
   }
 }
 
-// --- লগইন ও ওটিপি স্ক্রিন ---
+// --- আসল SMS OTP সহ লগইন স্ক্রিন ---
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -40,35 +43,83 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _otpController = TextEditingController();
-  bool _isOtpSent = false;
-  final String _demoOtp = "1234"; // ডেমো ওটিপি টেস্ট করার জন্য
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  void _sendOtp() {
-    if (_phoneController.text.trim().length >= 10) {
-      setState(() {
-        _isOtpSent = true;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('OTP পাঠানো হয়েছে! (টেস্ট OTP: 1234)')),
-      );
-    } else {
+  String? _verificationId;
+  bool _isLoading = false;
+  bool _isOtpSent = false;
+
+  void _sendOtp() async {
+    final phone = _phoneController.text.trim();
+    if (phone.length < 10) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('সঠিক ১০ সংখ্যার মোবাইল নম্বর দিন')),
       );
+      return;
     }
+
+    setState(() => _isLoading = true);
+
+    await _auth.verifyPhoneNumber(
+      phoneNumber: '+91$phone',
+      verificationCompleted: (PhoneAuthCredential credential) async {
+        await _auth.signInWithCredential(credential);
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ChatListScreen(myPhone: '+91$phone'),
+            ),
+          );
+        }
+      },
+      verificationFailed: (FirebaseAuthException e) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('ভেরিফিকেশন ব্যর্থ হয়েছে: ${e.message}')),
+        );
+      },
+      codeSent: (String verificationId, int? resendToken) {
+        setState(() {
+          _verificationId = verificationId;
+          _isOtpSent = true;
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('আপনার নম্বরে SMS পাঠানো হয়েছে!')),
+        );
+      },
+      codeAutoRetrievalTimeout: (String verificationId) {
+        _verificationId = verificationId;
+      },
+    );
   }
 
-  void _verifyOtp() {
-    if (_otpController.text.trim() == _demoOtp) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => ChatListScreen(myPhone: _phoneController.text.trim()),
-        ),
+  void _verifyOtp() async {
+    final otp = _otpController.text.trim();
+    if (otp.isEmpty || _verificationId == null) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final credential = PhoneAuthProvider.credential(
+        verificationId: _verificationId!,
+        smsCode: otp,
       );
-    } else {
+      await _auth.signInWithCredential(credential);
+
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ChatListScreen(myPhone: '+91${_phoneController.text.trim()}'),
+          ),
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ভুল OTP! দয়া করে 1234 লিখুন')),
+        SnackBar(content: Text('ভুল OTP: ${e.message}')),
       );
     }
   }
@@ -100,7 +151,7 @@ class _LoginScreenState extends State<LoginScreen> {
               keyboardType: TextInputType.phone,
               enabled: !_isOtpSent,
               decoration: const InputDecoration(
-                labelText: 'Phone Number',
+                labelText: 'Mobile Number',
                 prefixText: '+91 ',
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.phone),
@@ -112,30 +163,34 @@ class _LoginScreenState extends State<LoginScreen> {
                 controller: _otpController,
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(
-                  labelText: 'Enter OTP (1234)',
+                  labelText: 'Enter 6-digit OTP',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.lock_clock),
                 ),
               ),
               const SizedBox(height: 16),
               ElevatedButton(
-                onPressed: _verifyOtp,
+                onPressed: _isLoading ? null : _verifyOtp,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF6750A4),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
-                child: const Text('Verify & Enter Chat', style: TextStyle(fontSize: 16)),
+                child: _isLoading
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : const Text('Verify SMS Code', style: TextStyle(fontSize: 16)),
               ),
             ] else ...[
               ElevatedButton(
-                onPressed: _sendOtp,
+                onPressed: _isLoading ? null : _sendOtp,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF6750A4),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
-                child: const Text('Send OTP', style: TextStyle(fontSize: 16)),
+                child: _isLoading
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : const Text('Send Real OTP', style: TextStyle(fontSize: 16)),
               ),
             ],
           ],
@@ -156,9 +211,9 @@ class ChatListScreen extends StatefulWidget {
 
 class _ChatListScreenState extends State<ChatListScreen> {
   final List<Map<String, String>> contacts = [
-    {'name': 'Rahul Sharma', 'phone': '9876543210', 'status': 'Hey there! Using VibeNet.'},
-    {'name': 'Priya Das', 'phone': '9123456780', 'status': 'Available'},
-    {'name': 'Amit Roy', 'phone': '9988776655', 'status': 'Busy at work'},
+    {'name': 'Rahul Sharma', 'phone': '+919876543210', 'status': 'Hey there! Using VibeNet.'},
+    {'name': 'Priya Das', 'phone': '+919123456780', 'status': 'Available'},
+    {'name': 'Amit Roy', 'phone': '+919988776655', 'status': 'Busy at work'},
   ];
 
   @override
@@ -171,11 +226,14 @@ class _ChatListScreenState extends State<ChatListScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: () {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => const LoginScreen()),
-              );
+            onPressed: () async {
+              await FirebaseAuth.instance.signOut();
+              if (context.mounted) {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LoginScreen()),
+                );
+              }
             },
           )
         ],
@@ -213,7 +271,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
   }
 }
 
-// --- মেসেজিং / কথোপকথন স্ক্রিন ---
+// --- মেসেজিং স্ক্রিন ---
 class ConversationScreen extends StatefulWidget {
   final String myPhone;
   final String receiverName;
