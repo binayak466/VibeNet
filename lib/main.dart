@@ -13,7 +13,7 @@ void main() {
   runApp(const VibeNetApp());
 }
 
-// নম্বর হাইড করার সিকিউরিটি ফাংশন (যাতে কেউ ফুল নম্বর দেখতে না পায়)
+// ফোন নম্বর মাস্ক বা হাইড করার ফাংশন (গোপনীয়তা রক্ষার জন্য)
 String maskPhoneNumber(String phone) {
   if (phone.length > 6) {
     return '${phone.substring(0, 3)}••••••${phone.substring(phone.length - 4)}';
@@ -496,6 +496,7 @@ class _ProfileNameStepScreenState extends State<ProfileNameStepScreen> {
   }
 }
 
+// --- ড্যাশবোর্ড স্ক্রিন (BottomNavigationBar সহ) ---
 class MainDashboardScreen extends StatefulWidget {
   final String myPhone;
   final String currentSessionToken;
@@ -537,11 +538,15 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _currentIndex == 4 ? WhatsAppProfileScreen(myPhone: widget.myPhone) : DashboardHomeBody(myPhone: widget.myPhone),
+      body: _currentIndex == 4
+          ? WhatsAppProfileScreen(myPhone: widget.myPhone)
+          : DashboardHomeBody(myPhone: widget.myPhone),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (i) => setState(() => _currentIndex = i),
         type: BottomNavigationBarType.fixed,
+        selectedItemColor: const Color(0xFF1E88E5),
+        unselectedItemColor: Colors.grey,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.chat_bubble), label: 'Chats'),
           BottomNavigationBarItem(icon: Icon(Icons.feed_outlined), label: 'Feed'),
@@ -554,42 +559,292 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
   }
 }
 
-class DashboardHomeBody extends StatelessWidget {
+// --- ড্যাশবোর্ড বডি (স্ক্রিনশটের মতো এক্সাক্ট লুক) ---
+class DashboardHomeBody extends StatefulWidget {
   final String myPhone;
   const DashboardHomeBody({super.key, required this.myPhone});
 
+  @override
+  State<DashboardHomeBody> createState() => _DashboardHomeBodyState();
+}
+
+class _DashboardHomeBodyState extends State<DashboardHomeBody> {
+  String _weatherCity = 'Kolkata';
+  String _weatherTemp = '28°C';
+  IconData _weatherIcon = Icons.wb_sunny_rounded;
+  String _myPhotoUrl = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchLiveWeather();
+    _loadMyProfile();
+  }
+
+  void _loadMyProfile() async {
+    final doc = await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).get();
+    if (doc.exists && doc.data() != null) {
+      setState(() {
+        _myPhotoUrl = doc.data()!['photoUrl'] ?? '';
+      });
+    }
+  }
+
+  Future<void> _fetchLiveWeather() async {
+    try {
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 8);
+      final request = await client.getUrl(Uri.parse('https://wttr.in/?format=j1'));
+      final response = await request.close();
+
+      if (response.statusCode == 200) {
+        final body = await response.transform(utf8.decoder).join();
+        final data = jsonDecode(body) as Map<String, dynamic>;
+        final current = data['current_condition']?[0];
+        final area = data['nearest_area']?[0];
+
+        final temp = current?['temp_C'] ?? '28';
+        final city = area?['areaName']?[0]?['value'] ?? 'Local';
+
+        if (mounted) {
+          setState(() {
+            _weatherCity = city;
+            _weatherTemp = '$temp°C';
+          });
+        }
+      }
+    } catch (_) {}
+  }
+
   void _openGlobalSearch(BuildContext context) {
-    showSearch(context: context, delegate: GlobalUserSearchDelegate(myPhone: myPhone));
+    showSearch(context: context, delegate: GlobalUserSearchDelegate(myPhone: widget.myPhone));
+  }
+
+  void _openContactsOnlyChat(BuildContext context) async {
+    final status = await Permission.contacts.request();
+    if (!status.isGranted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('কনট্যাক্ট অ্যাক্সেসের অনুমতি দিন')));
+      return;
+    }
+
+    final phoneContacts = await FlutterContacts.getContacts(withProperties: true, withPhoto: false);
+    final usersSnapshot = await FirebaseFirestore.instance.collection('users').get();
+    final registeredPhones = <String, String>{};
+
+    for (var doc in usersSnapshot.docs) {
+      final data = doc.data();
+      final p = data['phone'] as String?;
+      final n = data['name'] as String? ?? 'VibeNet User';
+      if (p != null) registeredPhones[p] = n;
+    }
+
+    final List<Map<String, String>> matchedContacts = [];
+    for (var contact in phoneContacts) {
+      for (var phoneObj in contact.phones) {
+        var cleanNumber = phoneObj.number.replaceAll(RegExp(r'\s+|-|\(|\)'), '');
+        if (!cleanNumber.startsWith('+')) cleanNumber = '+91$cleanNumber';
+
+        if (registeredPhones.containsKey(cleanNumber) && cleanNumber != widget.myPhone) {
+          matchedContacts.add({
+            'name': contact.displayName.isNotEmpty ? contact.displayName : registeredPhones[cleanNumber]!,
+            'phone': cleanNumber,
+          });
+          break;
+        }
+      }
+    }
+
+    if (!context.mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          String searchQuery = '';
+          final filteredList = matchedContacts.where((c) {
+            return c['name']!.toLowerCase().contains(searchQuery.toLowerCase());
+          }).toList();
+
+          return Container(
+            padding: const EdgeInsets.all(20),
+            height: MediaQuery.of(context).size.height * 0.75,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Select Contact (সেভ থাকা নম্বর)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E88E5))),
+                const SizedBox(height: 12),
+                TextField(
+                  onChanged: (val) => setModalState(() => searchQuery = val),
+                  decoration: InputDecoration(
+                    hintText: 'Search contact by name...',
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                if (filteredList.isEmpty)
+                  const Expanded(child: Center(child: Text('কোনো কন্ট্যাক্ট পাওয়া যায়নি।', style: TextStyle(color: Colors.grey))))
+                else
+                  Expanded(
+                    child: ListView.separated(
+                      itemCount: filteredList.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (context, i) {
+                        final c = filteredList[i];
+                        return ListTile(
+                          leading: const CircleAvatar(backgroundColor: Color(0xFF1E88E5), child: Icon(Icons.person, color: Colors.white)),
+                          title: Text(c['name']!, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          subtitle: Text(maskPhoneNumber(c['phone']!)),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.chat_bubble, color: Color(0xFF1E88E5)),
+                            onPressed: () {
+                              Navigator.pop(ctx);
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => ConversationScreen(myPhone: widget.myPhone, receiverPhone: c['phone']!, receiverName: c['name']!),
+                                ),
+                              );
+                            },
+                          ),
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ConversationScreen(myPhone: widget.myPhone, receiverPhone: c['phone']!, receiverName: c['name']!),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: Column(
-        children: [
-          AppBar(
-            title: const Text('VibeNet'),
-            actions: [
-              IconButton(icon: const Icon(Icons.search), onPressed: () => _openGlobalSearch(context)),
-            ],
-          ),
-          Expanded(
-            child: StreamBuilder<QuerySnapshot>(
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // স্ক্রিনশটের মতো ওপরের কার্ড (প্রোফাইল পিকচার, VibeNet, সার্চ ও কিউআর কোড এবং লাইভ আবহাওয়া)
+            Container(
+              margin: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [Color(0xFF1976D2), Color(0xFF42A5F5)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                borderRadius: BorderRadius.circular(22),
+                boxShadow: [BoxShadow(color: const Color(0xFF1976D2).withOpacity(0.35), blurRadius: 10, offset: const Offset(0, 4))],
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 16,
+                        backgroundColor: Colors.white24,
+                        backgroundImage: _myPhotoUrl.isNotEmpty ? NetworkImage(_myPhotoUrl) : null,
+                        child: _myPhotoUrl.isEmpty ? const Icon(Icons.person, size: 18, color: Colors.white) : null,
+                      ),
+                      const SizedBox(width: 10),
+                      const Expanded(child: Text('VibeNet', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold))),
+                      IconButton(
+                        icon: const Icon(Icons.search, color: Colors.white),
+                        onPressed: () => _openGlobalSearch(context),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.qr_code, color: Colors.white),
+                        onPressed: () => _openContactsOnlyChat(context),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(color: Colors.white.withOpacity(0.18), borderRadius: BorderRadius.circular(16)),
+                    child: Row(
+                      children: [
+                        Icon(_weatherIcon, color: Colors.amberAccent, size: 36),
+                        const SizedBox(width: 14),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(_weatherTemp, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                            Text(_weatherCity, style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500)),
+                          ],
+                        ),
+                        const Spacer(),
+                        const Icon(Icons.location_on, color: Colors.white, size: 20),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // স্ট্যাটাস বা সার্কেল সেকশন (স্ক্রিনশটের মতো)
+            SizedBox(
+              height: 90,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                children: [
+                  _buildStatusItem('Rahul', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200'),
+                  _buildStatusItem('Priya', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200'),
+                  _buildStatusItem('Anita', 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200'),
+                  _buildStatusItem('Vikram', 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200'),
+                ],
+              ),
+            ),
+
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
+              child: Text('CHATS', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black54, letterSpacing: 1)),
+            ),
+
+            // চ্যাট লিস্ট
+            StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance.collection('chats').orderBy('timestamp', descending: true).snapshots(),
               builder: (context, snapshot) {
                 final Set<String> partners = {};
+                final Map<String, String> lastMsgs = {};
                 if (snapshot.hasData) {
                   for (var d in snapshot.data!.docs) {
                     final data = d.data() as Map<String, dynamic>;
                     final s = data['sender'];
                     final r = data['receiver'];
-                    if (s == myPhone && r != null) partners.add(r);
-                    else if (r == myPhone && s != null) partners.add(s);
+                    final txt = data['text'] ?? '';
+                    if (s == widget.myPhone && r != null) {
+                      partners.add(r);
+                      lastMsgs.putIfAbsent(r, () => txt);
+                    } else if (r == widget.myPhone && s != null) {
+                      partners.add(s);
+                      lastMsgs.putIfAbsent(s, () => txt);
+                    }
                   }
                 }
                 final list = partners.toList();
-                if (list.isEmpty) return const Center(child: Text('কোনো চ্যাট নেই। সার্চ করে বা কন্ট্যাক্ট থেকে চ্যাট শুরু করুন।'));
+                if (list.isEmpty) {
+                  return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(32.0),
+                      child: Text('কোনো চ্যাট নেই। সার্চ করুন অথবা কন্ট্যাক্ট থেকে চ্যাট শুরু করুন।', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+                    ),
+                  );
+                }
                 return ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
                   itemCount: list.length,
                   itemBuilder: (context, i) {
                     final phone = list[i];
@@ -601,10 +856,11 @@ class DashboardHomeBody extends StatelessWidget {
                           name = userSnap.data!['name'] ?? phone;
                         }
                         return ListTile(
-                          leading: const CircleAvatar(child: Icon(Icons.person)),
+                          leading: const CircleAvatar(backgroundColor: Color(0xFF1E88E5), child: Icon(Icons.person, color: Colors.white)),
                           title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                          subtitle: Text(maskPhoneNumber(phone)), // এখানে সম্পূর্ণ নম্বর হাইড করা থাকে
-                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (c) => ConversationScreen(myPhone: myPhone, receiverPhone: phone, receiverName: name))),
+                          subtitle: Text(lastMsgs[phone] ?? maskPhoneNumber(phone), maxLines: 1),
+                          trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (c) => ConversationScreen(myPhone: widget.myPhone, receiverPhone: phone, receiverName: name))),
                         );
                       },
                     );
@@ -612,14 +868,32 @@ class DashboardHomeBody extends StatelessWidget {
                 );
               },
             ),
+            const SizedBox(height: 30),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusItem(String name, String imgUrl) {
+    return Container(
+      margin: const EdgeInsets.only(right: 12),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(2),
+            decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: const Color(0xFF1E88E5), width: 2.5)),
+            child: CircleAvatar(radius: 24, backgroundImage: NetworkImage(imgUrl)),
           ),
+          const SizedBox(height: 4),
+          Text(name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
         ],
       ),
     );
   }
 }
 
-// গ্লোবাল সার্চ (নাম দিয়ে সার্চ করলে নাম ও প্রোফাইল দেখাবে, কিন্তু নম্বর ঢেকে রাখবে)
+// গ্লোবাল সার্চ
 class GlobalUserSearchDelegate extends SearchDelegate<String> {
   final String myPhone;
   GlobalUserSearchDelegate({required this.myPhone});
@@ -631,12 +905,12 @@ class GlobalUserSearchDelegate extends SearchDelegate<String> {
   Widget? buildLeading(BuildContext context) => IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => close(context, ''));
 
   @override
-  Widget buildResults(BuildContext context) => _searchResult();
+  Widget buildResults(BuildContext context) => _searchResult(context);
 
   @override
-  Widget buildSuggestions(BuildContext context) => _searchResult();
+  Widget buildSuggestions(BuildContext context) => _searchResult(context);
 
-  Widget _searchResult() {
+  Widget _searchResult(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection('users').snapshots(),
       builder: (context, snapshot) {
@@ -653,7 +927,7 @@ class GlobalUserSearchDelegate extends SearchDelegate<String> {
 
         return ListView.builder(
           itemCount: docs.length,
-          itemBuilder: (context, index) {
+          itemBuilder: (ctx, index) {
             final data = docs[index].data() as Map<String, dynamic>;
             final name = data['name'] ?? 'User';
             final phone = data['phone'] ?? '';
@@ -662,7 +936,7 @@ class GlobalUserSearchDelegate extends SearchDelegate<String> {
             return ListTile(
               leading: CircleAvatar(backgroundImage: photo.isNotEmpty ? NetworkImage(photo) : null, child: photo.isEmpty ? const Icon(Icons.person) : null),
               title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: Text(maskPhoneNumber(phone)), // এখানেও ফুল নম্বর দেখাবে না
+              subtitle: Text(maskPhoneNumber(phone)),
               trailing: const Icon(Icons.chat_bubble_outline, color: Color(0xFF1E88E5)),
               onTap: () {
                 close(context, phone);
@@ -676,23 +950,103 @@ class GlobalUserSearchDelegate extends SearchDelegate<String> {
   }
 }
 
-class WhatsAppProfileScreen extends StatelessWidget {
+// --- স্টাইলিশ প্রোফাইল স্ক্রিন ---
+class WhatsAppProfileScreen extends StatefulWidget {
   final String myPhone;
   const WhatsAppProfileScreen({super.key, required this.myPhone});
 
   @override
+  State<WhatsAppProfileScreen> createState() => _WhatsAppProfileScreenState();
+}
+
+class _WhatsAppProfileScreenState extends State<WhatsAppProfileScreen> {
+  String _userName = 'VibeNet User';
+  String _about = 'Hey there! I am using VibeNet.';
+  String _photoUrl = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
+
+  void _loadProfile() async {
+    final doc = await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).get();
+    if (doc.exists && doc.data() != null) {
+      setState(() {
+        _userName = doc.data()!['name'] ?? _userName;
+        _about = doc.data()!['about'] ?? _about;
+        _photoUrl = doc.data()!['photoUrl'] ?? '';
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
-      body: Center(
-        child: OutlinedButton.icon(
-          onPressed: () async {
-            await FirebaseAuth.instance.signOut();
-            if (context.mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => const WelcomeTermsScreen()));
-          },
-          icon: const Icon(Icons.logout, color: Colors.red),
-          label: const Text('Log out', style: TextStyle(color: Colors.red)),
-        ),
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: const Text('Profile / Settings', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black87,
+        elevation: 0,
+      ),
+      body: ListView(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 35,
+                  backgroundColor: Colors.grey.shade200,
+                  backgroundImage: _photoUrl.isNotEmpty ? NetworkImage(_photoUrl) : null,
+                  child: _photoUrl.isEmpty ? const Icon(Icons.person, size: 40, color: Colors.grey) : null,
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(_userName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 4),
+                      Text(_about, style: const TextStyle(fontSize: 13, color: Colors.grey)),
+                      const SizedBox(height: 2),
+                      Text(maskPhoneNumber(widget.myPhone), style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(thickness: 1, height: 1),
+          ListTile(
+            leading: const Icon(Icons.translate, color: Color(0xFF1E88E5)),
+            title: const Text('App Language / ভাষা'),
+            subtitle: Text(appLanguage.value == 'bn' ? 'বাংলা' : (appLanguage.value == 'hi' ? 'हिन्दी' : 'English')),
+            onTap: () => showLanguageSelector(context),
+          ),
+          const Divider(thickness: 1, height: 1),
+          const SizedBox(height: 30),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20.0),
+            child: OutlinedButton.icon(
+              onPressed: () async {
+                await FirebaseAuth.instance.signOut();
+                if (context.mounted) {
+                  Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => const WelcomeTermsScreen()));
+                }
+              },
+              icon: const Icon(Icons.logout, color: Colors.red),
+              label: const Text('Log out', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Colors.red),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -731,7 +1085,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(widget.receiverName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            Text(maskPhoneNumber(widget.receiverPhone), style: const TextStyle(fontSize: 11)), // চ্যাটের ভেতরেও নম্বর লুকানো থাকবে
+            Text(maskPhoneNumber(widget.receiverPhone), style: const TextStyle(fontSize: 11)),
           ],
         ),
         backgroundColor: const Color(0xFF1E88E5),
