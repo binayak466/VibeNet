@@ -1353,15 +1353,15 @@ class _ConversationScreenState extends State<ConversationScreen> {
                                   style: const TextStyle(fontSize: 15),
                                 ),
                               ),
-                              const SizedBox(width: 6),
-                              if (isMe)
-                                Icon(
-                                  Icons.done_all,
-                                  size: 16,
-                                  color: isSeen ? Colors.blue : Colors.grey,
-                                ),
-                            ],
-                          ),
+                              
+const SizedBox(width: 6),
+if (isMe)
+  Icon(
+    isSeen ? Icons.done_all : Icons.done,
+    size: 16,
+    color: isSeen ? Colors.blue : Colors.grey,
+  ),
+                              
                         ),
                       ),
                     );
