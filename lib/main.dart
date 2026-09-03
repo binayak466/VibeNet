@@ -180,19 +180,14 @@ class _FirebaseInitWrapperState extends State<FirebaseInitWrapper> {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
-        final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-        if (doc.exists && doc.data() != null && doc.data()!['phone'] != null) {
-          final phone = doc.data()!['phone'] as String;
-          final token = doc.data()!['sessionToken'] as String? ?? '';
-          return MainDashboardScreen(myPhone: phone, currentSessionToken: token);
-        }
-        final query = await FirebaseFirestore.instance.collection('users').limit(1).get();
-        if (query.docs.isNotEmpty) {
-          final data = query.docs.first.data();
-          final phone = data['phone'] as String?;
-          final token = data['sessionToken'] as String?;
-          if (phone != null && phone.isNotEmpty) {
-            return MainDashboardScreen(myPhone: phone, currentSessionToken: token ?? '');
+        // ফায়ারস্টোর থেকে ইউজারের ডেটা সরাসরি খুঁজে বের করা
+        final querySnapshot = await FirebaseFirestore.instance.collection('users').get();
+        for (var doc in querySnapshot.docs) {
+          final data = doc.data();
+          if (data['sessionToken'] != null && data['phone'] != null) {
+            final phone = data['phone'] as String;
+            final token = data['sessionToken'] as String;
+            return MainDashboardScreen(myPhone: phone, currentSessionToken: token);
           }
         }
       }
@@ -350,7 +345,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       UserCredential userCred = await FirebaseAuth.instance.signInAnonymously();
-      final uid = userCred.user!.uid;
       final newSessionToken = 'session_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(999999)}';
 
       final existingDoc = await FirebaseFirestore.instance.collection('users').doc(_fullPhoneNumber).get();
@@ -358,11 +352,8 @@ class _LoginScreenState extends State<LoginScreen> {
       if (existingDoc.exists && existingDoc.data() != null) {
         await FirebaseFirestore.instance.collection('users').doc(_fullPhoneNumber).update({
           'activeSessionToken': newSessionToken,
-        });
-        await FirebaseFirestore.instance.collection('users').doc(uid).set({
-          'phone': _fullPhoneNumber,
           'sessionToken': newSessionToken,
-        }, SetOptions(merge: true));
+        });
 
         if (mounted) {
           Navigator.pushAndRemoveUntil(
