@@ -1209,8 +1209,21 @@ class _ConversationScreenState extends State<ConversationScreen> {
                   if (snapshot.hasData && snapshot.data!.exists) {
                     final data = snapshot.data!.data() as Map<String, dynamic>?;
                     final lastSeenPrivacy = data?['lastSeenPrivacy'] ?? 'everyone';
-                    if (lastSeenPrivacy == 'everyone') {
-                      statusText = 'Online';
+                    
+                    if (lastSeenPrivacy != 'nobody') {
+                      final lastActive = data?['lastActive'] ?? data?['timestamp'];
+                      if (lastActive != null && lastActive is Timestamp) {
+                        final DateTime activeTime = lastActive.toDate();
+                        final difference = DateTime.now().difference(activeTime);
+                        
+                        if (difference.inMinutes < 5) {
+                          statusText = 'Online';
+                        } else {
+                          statusText = 'Last seen ${activeTime.hour}:${activeTime.minute.toString().padLeft(2, '0')}';
+                        }
+                      } else {
+                        statusText = 'Offline';
+                      }
                     }
                   }
                   return Column(
