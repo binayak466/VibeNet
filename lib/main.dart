@@ -1187,7 +1187,7 @@ class _WhatsAppProfileScreenState extends State<WhatsAppProfileScreen> {
             subtitle: const Text('Last seen, profile photo, read receipts', style: TextStyle(fontSize: 13, color: Colors.grey)),
             onTap: _openPrivacySettings,
           ),
-          const Divider(thickness:, height: 1), // Updated line
+          const Divider(thickness: 1, height: 1),
           ListTile(
             leading: const Icon(Icons.translate, color: Color(0xFF1E88E5)),
             title: const Text('App Language / ভাষা'),
@@ -1303,7 +1303,6 @@ class _ConversationScreenState extends State<ConversationScreen> {
                     final isMe = data['sender'] == widget.myPhone;
                     final isSeen = data['isSeen'] ?? false;
 
-                    // যদি মেসেজটি রিসিভারের দিক থেকে ওপেন করা হয়, তবে সিন বা ব্লু টিক আপডেট হবে
                     if (!isMe && !isSeen) {
                       FirebaseFirestore.instance.collection('chats').doc(doc.id).update({'isSeen': true});
                     }
