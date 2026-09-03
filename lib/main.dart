@@ -1111,13 +1111,30 @@ class _DashboardHomeBodyState extends State<DashboardHomeBody> {
                     final data = d.data() as Map<String, dynamic>;
                     final s = data['sender'] as String?;
                     final r = data['receiver'] as String?;
-                    final txt = data['text'] as String? ?? '';
-                    if (s == widget.myPhone && r != null) {
-                      partners.add(r);
-                      lastMsgs.putIfAbsent(r, () => txt);
-                    } else if (r == widget.myPhone && s != null) {
-                      partners.add(s);
-                      lastMsgs.putIfAbsent(s, () => txt);
+                    final type = data['type'] as String? ?? 'text';
+                    var txt = '';
+                    if (data['isDeleted'] == true) {
+                      txt = '🚫 This message was deleted';
+                    } else if (type == 'image') {
+                      txt = '📷 Photo';
+                    } else if (type == 'document') {
+                      txt = '📄 Document';
+                    } else if (type == 'location') {
+                      txt = '📍 Live Location';
+                    } else {
+                      txt = data['text'] as String? ?? '';
+                    }
+
+                    final deletedFor = List<String>.from(data['deletedFor'] ?? []);
+
+                    if (!deletedFor.contains(widget.myPhone)) {
+                      if (s == widget.myPhone && r != null) {
+                        partners.add(r);
+                        lastMsgs.putIfAbsent(r, () => txt);
+                      } else if (r == widget.myPhone && s != null) {
+                        partners.add(s);
+                        lastMsgs.putIfAbsent(s, () => txt);
+                      }
                     }
                   }
                 }
@@ -1161,7 +1178,7 @@ class _DashboardHomeBodyState extends State<DashboardHomeBody> {
   }
 }
 
-// --- ৬. সম্পূর্ণ WhatsApp স্টাইল Profile & Settings Screen ---
+// --- ৬. WhatsApp স্টাইল Settings & Profile Screen ---
 class WhatsAppProfileScreen extends StatefulWidget {
   final String myPhone;
   const WhatsAppProfileScreen({super.key, required this.myPhone});
@@ -1331,7 +1348,6 @@ class _WhatsAppProfileScreenState extends State<WhatsAppProfileScreen> {
       ),
       body: ListView(
         children: [
-          // Profile Card Header
           InkWell(
             onTap: _editNameDialog,
             child: Container(
@@ -1380,59 +1396,22 @@ class _WhatsAppProfileScreenState extends State<WhatsAppProfileScreen> {
           ),
           const Divider(thickness: 1, height: 1),
 
-          // সমস্ত সেটিংস অপশন
-          _buildSettingsTile(
-            icon: Icons.key_outlined,
-            title: 'Account',
-            subtitle: 'Security notifications, change number',
-            onTap: () {},
-          ),
-          _buildSettingsTile(
-            icon: Icons.lock_outline,
-            title: 'Privacy',
-            subtitle: 'Last seen, profile photo, read receipts',
-            onTap: _openPrivacySettings,
-          ),
-          _buildSettingsTile(
-            icon: Icons.chat_outlined,
-            title: 'Chats',
-            subtitle: 'Theme, wallpapers, chat history',
-            onTap: () {},
-          ),
-          _buildSettingsTile(
-            icon: Icons.notifications_none_outlined,
-            title: 'Notifications',
-            subtitle: 'Message, group & call tones',
-            onTap: () {},
-          ),
-          _buildSettingsTile(
-            icon: Icons.data_usage_outlined,
-            title: 'Storage and data',
-            subtitle: 'Network usage, auto-download',
-            onTap: () {},
-          ),
+          _buildSettingsTile(icon: Icons.key_outlined, title: 'Account', subtitle: 'Security notifications, change number', onTap: () {}),
+          _buildSettingsTile(icon: Icons.lock_outline, title: 'Privacy', subtitle: 'Last seen, profile photo, read receipts', onTap: _openPrivacySettings),
+          _buildSettingsTile(icon: Icons.chat_outlined, title: 'Chats', subtitle: 'Theme, wallpapers, chat history', onTap: () {}),
+          _buildSettingsTile(icon: Icons.notifications_none_outlined, title: 'Notifications', subtitle: 'Message, group & call tones', onTap: () {}),
+          _buildSettingsTile(icon: Icons.data_usage_outlined, title: 'Storage and data', subtitle: 'Network usage, auto-download', onTap: () {}),
           _buildSettingsTile(
             icon: Icons.translate,
             title: 'App Language / ভাষা',
             subtitle: appLanguage.value == 'bn' ? 'বাংলা' : (appLanguage.value == 'hi' ? 'हिन्दी' : 'English'),
             onTap: () => showLanguageSelector(context),
           ),
-          _buildSettingsTile(
-            icon: Icons.help_outline,
-            title: 'Help',
-            subtitle: 'Help center, contact us, privacy policy',
-            onTap: () {},
-          ),
-          _buildSettingsTile(
-            icon: Icons.group_add_outlined,
-            title: 'Invite a friend',
-            subtitle: 'Share VibeNet with friends',
-            onTap: () {},
-          ),
+          _buildSettingsTile(icon: Icons.help_outline, title: 'Help', subtitle: 'Help center, contact us, privacy policy', onTap: () {}),
+          _buildSettingsTile(icon: Icons.group_add_outlined, title: 'Invite a friend', subtitle: 'Share VibeNet with friends', onTap: () {}),
 
           const SizedBox(height: 20),
 
-          // Logout বাটন
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20.0),
             child: OutlinedButton.icon(
@@ -1467,7 +1446,7 @@ class _WhatsAppProfileScreenState extends State<WhatsAppProfileScreen> {
   }
 }
 
-// --- ৭. মেসেজিং স্ক্রিন ---
+// --- ৭. মেসেজিং স্ক্রিন (ছবি, ডকুমেন্ট ও লাইভ লোকেশন সহ) ---
 class ConversationScreen extends StatefulWidget {
   final String myPhone;
   final String receiverPhone;
@@ -1482,16 +1461,207 @@ class ConversationScreen extends StatefulWidget {
 class _ConversationScreenState extends State<ConversationScreen> {
   final TextEditingController _msgController = TextEditingController();
 
-  void _sendMessage() async {
-    final text = _msgController.text.trim();
-    if (text.isEmpty) return;
-    _msgController.clear();
+  // মেসেজ সেন্ড করার জেনেরিক মেথড
+  void _sendPayload({required String type, required String text, String? mediaUrl}) async {
     await FirebaseFirestore.instance.collection('chats').add({
       'sender': widget.myPhone,
       'receiver': widget.receiverPhone,
+      'type': type, // 'text', 'image', 'document', 'location'
       'text': text,
+      'mediaUrl': mediaUrl ?? '',
+      'isDeleted': false,
+      'deletedFor': [],
       'timestamp': FieldValue.serverTimestamp(),
     });
+  }
+
+  void _sendTextMessage() {
+    final text = _msgController.text.trim();
+    if (text.isEmpty) return;
+    _msgController.clear();
+    _sendPayload(type: 'text', text: text);
+  }
+
+  // ছবি পাঠানোর পপআপ
+  void _pickAndSendPhoto() {
+    final List<String> samplePhotos = [
+      'https://images.unsplash.com/photo-1575936123452-b67c3203c357?w=400',
+      'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=400',
+      'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=400',
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Select Photo to Send', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E88E5))),
+            const SizedBox(height: 14),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: samplePhotos.map((url) {
+                return InkWell(
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _sendPayload(type: 'image', text: 'Photo', mediaUrl: url);
+                  },
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.network(url, width: 80, height: 80, fit: BoxFit.cover),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ডকুমেন্ট পাঠানোর পদ্ধতি
+  void _sendDocument() {
+    _sendPayload(
+      type: 'document',
+      text: 'Project_Report_2026.pdf',
+      mediaUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    );
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Document sent!')),
+    );
+  }
+
+  // লাইভ লোকেশন পাঠানোর পদ্ধতি
+  void _sendLiveLocation() {
+    _sendPayload(
+      type: 'location',
+      text: 'Live Location: Burdwan, West Bengal (23.2324° N, 87.8615° E)',
+      mediaUrl: 'https://maps.google.com/?q=23.2324,87.8615',
+    );
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Live Location shared!')),
+    );
+  }
+
+  // Attachment বটমশিট (+ বাটনে চাপ দিলে যা খুলবে)
+  void _showAttachmentMenu() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 4))],
+        ),
+        child: Wrap(
+          spacing: 24,
+          runSpacing: 20,
+          alignment: WrapAlignment.center,
+          children: [
+            _buildAttachOption(
+              icon: Icons.photo,
+              label: 'Gallery',
+              color: Colors.purple,
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickAndSendPhoto();
+              },
+            ),
+            _buildAttachOption(
+              icon: Icons.insert_drive_file,
+              label: 'Document',
+              color: Colors.indigo,
+              onTap: () {
+                Navigator.pop(ctx);
+                _sendDocument();
+              },
+            ),
+            _buildAttachOption(
+              icon: Icons.location_on,
+              label: 'Location',
+              color: Colors.green,
+              onTap: () {
+                Navigator.pop(ctx);
+                _sendLiveLocation();
+              },
+            ),
+            _buildAttachOption(
+              icon: Icons.camera_alt,
+              label: 'Camera',
+              color: Colors.pink,
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickAndSendPhoto();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAttachOption({required IconData icon, required String label, required Color color, required VoidCallback onTap}) {
+    return InkWell(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CircleAvatar(
+            radius: 28,
+            backgroundColor: color,
+            child: Icon(icon, color: Colors.white, size: 28),
+          ),
+          const SizedBox(height: 8),
+          Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+        ],
+      ),
+    );
+  }
+
+  // মেসেজ ডিলিট করার ডায়ালগ
+  void _showDeleteDialog(String docId, bool isMe, bool isAlreadyDeleted) {
+    if (isAlreadyDeleted) return;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Message?'),
+        content: const Text('Are you sure you want to delete this message?'),
+        actions: [
+          if (isMe)
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                await FirebaseFirestore.instance.collection('chats').doc(docId).update({
+                  'isDeleted': true,
+                  'text': '🚫 This message was deleted',
+                  'type': 'text',
+                });
+              },
+              child: const Text('Delete for everyone', style: TextStyle(color: Colors.red)),
+            ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await FirebaseFirestore.instance.collection('chats').doc(docId).update({
+                'deletedFor': FieldValue.arrayUnion([widget.myPhone]),
+              });
+            },
+            child: const Text('Delete for me', style: TextStyle(color: Colors.red)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -1516,10 +1686,15 @@ class _ConversationScreenState extends State<ConversationScreen> {
               stream: FirebaseFirestore.instance.collection('chats').orderBy('timestamp', descending: true).snapshots(),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+                
                 final docs = snapshot.data!.docs.where((doc) {
                   final data = doc.data() as Map<String, dynamic>;
                   final s = data['sender'];
                   final r = data['receiver'];
+                  final deletedFor = List<String>.from(data['deletedFor'] ?? []);
+
+                  if (deletedFor.contains(widget.myPhone)) return false;
+
                   return (s == widget.myPhone && r == widget.receiverPhone) || (s == widget.receiverPhone && r == widget.myPhone);
                 }).toList();
 
@@ -1528,16 +1703,108 @@ class _ConversationScreenState extends State<ConversationScreen> {
                   itemCount: docs.length,
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   itemBuilder: (context, index) {
-                    final data = docs[index].data() as Map<String, dynamic>;
+                    final doc = docs[index];
+                    final data = doc.data() as Map<String, dynamic>;
                     final isMe = data['sender'] == widget.myPhone;
+                    final isDeleted = data['isDeleted'] == true;
+                    final type = data['type'] as String? ?? 'text';
+                    final mediaUrl = data['mediaUrl'] as String? ?? '';
+                    final text = data['text'] as String? ?? '';
 
                     return Align(
                       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(color: isMe ? const Color(0xFFDCF8C6) : Colors.white, borderRadius: BorderRadius.circular(10)),
-                        child: Text(data['text'] ?? '', style: const TextStyle(fontSize: 15)),
+                      child: InkWell(
+                        onLongPress: () => _showDeleteDialog(doc.id, isMe, isDeleted),
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          padding: const EdgeInsets.all(8),
+                          constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.78),
+                          decoration: BoxDecoration(
+                            color: isMe ? const Color(0xFFDCF8C6) : Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 1)],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // ১. ফটো মেসেজ
+                              if (!isDeleted && type == 'image' && mediaUrl.isNotEmpty) ...[
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Image.network(mediaUrl, width: 220, height: 180, fit: BoxFit.cover),
+                                ),
+                                const SizedBox(height: 4),
+                              ],
+
+                              // ২. ডকুমেন্ট মেসেজ
+                              if (!isDeleted && type == 'document') ...[
+                                Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withOpacity(0.06),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.picture_as_pdf, color: Colors.redAccent, size: 32),
+                                      const SizedBox(width: 10),
+                                      Flexible(
+                                        child: Text(text, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                              ],
+
+                              // ৩. লাইভ লোকেশন মেসেজ
+                              if (!isDeleted && type == 'location') ...[
+                                Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: Colors.green.shade50,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: Colors.green.shade200),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.my_location, color: Colors.green, size: 28),
+                                      const SizedBox(width: 10),
+                                      Flexible(
+                                        child: Text(text, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.green)),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                              ],
+
+                              // সাধারণ টেক্সট বা ডিলিটেড মেসেজ
+                              if (type == 'text' || isDeleted)
+                                Text(
+                                  text,
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontStyle: isDeleted ? FontStyle.italic : FontStyle.normal,
+                                    color: isDeleted ? Colors.black54 : Colors.black87,
+                                  ),
+                                ),
+
+                              // ব্লু টিক
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  const Spacer(),
+                                  if (isMe && !isDeleted)
+                                    const Icon(Icons.done_all, size: 15, color: Color(0xFF34B7F1)),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     );
                   },
@@ -1545,23 +1812,51 @@ class _ConversationScreenState extends State<ConversationScreen> {
               },
             ),
           ),
+
+          // মেসেজ ইনপুট বার (+ বাটন সহ)
           Container(
             padding: const EdgeInsets.all(8),
             child: Row(
               children: [
                 Expanded(
                   child: Container(
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(25)),
-                    child: TextField(
-                      controller: _msgController,
-                      decoration: const InputDecoration(hintText: 'Type a message...', border: InputBorder.none, contentPadding: EdgeInsets.symmetric(horizontal: 16)),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(25),
+                      boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 1)],
+                    ),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.add_circle, color: Color(0xFF1E88E5), size: 26),
+                          tooltip: 'Share Media',
+                          onPressed: _showAttachmentMenu,
+                        ),
+                        Expanded(
+                          child: TextField(
+                            controller: _msgController,
+                            decoration: const InputDecoration(
+                              hintText: 'Type a message...',
+                              border: InputBorder.none,
+                              contentPadding: EdgeInsets.symmetric(horizontal: 8),
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.camera_alt, color: Colors.grey),
+                          onPressed: _pickAndSendPhoto,
+                        ),
+                      ],
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 CircleAvatar(
                   backgroundColor: const Color(0xFF1E88E5),
-                  child: IconButton(icon: const Icon(Icons.send, color: Colors.white, size: 20), onPressed: _sendMessage),
+                  child: IconButton(
+                    icon: const Icon(Icons.send, color: Colors.white, size: 20),
+                    onPressed: _sendTextMessage,
+                  ),
                 ),
               ],
             ),
