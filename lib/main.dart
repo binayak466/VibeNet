@@ -178,7 +178,6 @@ class _FirebaseInitWrapperState extends State<FirebaseInitWrapper> {
 
   Future<Widget> _checkLoginStatus() async {
     try {
-      // সরাসরি ফায়ারস্টোর থেকে চেক করা যাতে অ্যাপ রিস্টার্ট করলে লগআউট না হয়
       final querySnapshot = await FirebaseFirestore.instance.collection('users').get();
       if (querySnapshot.docs.isNotEmpty) {
         for (var doc in querySnapshot.docs) {
@@ -543,6 +542,18 @@ class ContactsScreen extends StatelessWidget {
   Future<void> _fetchAndShowContacts(BuildContext context) async {
     if (await Permission.contacts.request().isGranted) {
       final contacts = await FlutterContacts.getContacts(withProperties: true);
+      
+      final querySnapshot = await FirebaseFirestore.instance.collection('users').get();
+      final Set<String> registeredPhones = {};
+      for (var doc in querySnapshot.docs) {
+        final data = doc.data();
+        if (data['phone'] != null) {
+          registeredPhones.add(data['phone'].toString().replaceAll(RegExp(r'\s+'), ''));
+        }
+      }
+
+      if (!context.mounted) return;
+
       showModalBottomSheet(
         context: context,
         isScrollControlled: true,
@@ -559,27 +570,50 @@ class ContactsScreen extends StatelessWidget {
                   itemCount: contacts.length,
                   itemBuilder: (context, index) {
                     final contact = contacts[index];
-                    final phoneNum = contact.phones.isNotEmpty ? contact.phones.first.number : 'No number';
+                    final rawPhone = contact.phones.isNotEmpty ? contact.phones.first.number : '';
+                    final cleanPhone = rawPhone.replaceAll(RegExp(r'\s+'), '');
+                    
+                    bool isRegistered = false;
+                    for (var regPhone in registeredPhones) {
+                      if (cleanPhone.endsWith(regPhone) || regPhone.endsWith(cleanPhone)) {
+                        isRegistered = true;
+                        break;
+                      }
+                    }
+
                     return ListTile(
                       leading: const CircleAvatar(child: Icon(Icons.person)),
                       title: Text(contact.displayName),
-                      subtitle: Text(phoneNum),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.chat, color: Color(0xFF1E88E5)),
-                        onPressed: () {
-                          Navigator.pop(ctx);
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (c) => ConversationScreen(
-                                myPhone: myPhone,
-                                receiverPhone: phoneNum,
-                                receiverName: contact.displayName,
+                      subtitle: Text(rawPhone),
+                      trailing: isRegistered
+                          ? IconButton(
+                              icon: const Icon(Icons.chat, color: Color(0xFF1E88E5)),
+                              onPressed: () {
+                                Navigator.pop(ctx);
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (c) => ConversationScreen(
+                                      myPhone: myPhone,
+                                      receiverPhone: rawPhone,
+                                      receiverName: contact.displayName,
+                                    ),
+                                  ),
+                                );
+                              },
+                            )
+                          : TextButton(
+                              onPressed: () {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Invitation sent to ${contact.displayName}')),
+                                );
+                              },
+                              style: TextButton.styleFrom(
+                                backgroundColor: Colors.grey[200],
+                                foregroundColor: const Color(0xFF1E88E5),
                               ),
+                              child: const Text('Invite', style: TextStyle(fontWeight: FontWeight.bold)),
                             ),
-                          );
-                        },
-                      ),
                     );
                   },
                 ),
@@ -1124,7 +1158,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-                  appBar: AppBar(
+      appBar: AppBar(
         title: Row(
           children: [
             const CircleAvatar(
@@ -1140,7 +1174,6 @@ class _ConversationScreenState extends State<ConversationScreen> {
                   if (snapshot.hasData && snapshot.data!.exists) {
                     final data = snapshot.data!.data() as Map<String, dynamic>?;
                     final lastSeenPrivacy = data?['lastSeenPrivacy'] ?? 'everyone';
-                    // যদি ইউজার তার লাস্ট সিন সবার জন্য ওপেন রাখে তবে অনলাইন দেখাবে
                     if (lastSeenPrivacy == 'everyone') {
                       statusText = 'Online';
                     }
@@ -1174,7 +1207,6 @@ class _ConversationScreenState extends State<ConversationScreen> {
           ),
         ],
       ),
-
       body: Column(
         children: [
           Expanded(
