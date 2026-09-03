@@ -558,68 +558,103 @@ class ContactsScreen extends StatelessWidget {
         context: context,
         isScrollControlled: true,
         shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-        builder: (ctx) => Container(
-          height: MediaQuery.of(context).size.height * 0.7,
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              const Text('All Phone Contacts', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: contacts.length,
-                  itemBuilder: (context, index) {
-                    final contact = contacts[index];
-                    final rawPhone = contact.phones.isNotEmpty ? contact.phones.first.number : '';
-                    final cleanPhone = rawPhone.replaceAll(RegExp(r'\s+'), '');
-                    
-                    bool isRegistered = false;
-                    for (var regPhone in registeredPhones) {
-                      if (cleanPhone.endsWith(regPhone) || regPhone.endsWith(cleanPhone)) {
-                        isRegistered = true;
-                        break;
-                      }
-                    }
+        builder: (ctx) => StatefulBuilder(
+          builder: (context, setStateModal) {
+            String searchQuery = '';
+            
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.75,
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  const Text('All Phone Contacts', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  TextField(
+                    onChanged: (v) {
+                      setStateModal(() {
+                        searchQuery = v.toLowerCase();
+                      });
+                    },
+                    decoration: InputDecoration(
+                      hintText: 'Search contacts...',
+                      prefixIcon: const Icon(Icons.search),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                      filled: true,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: Builder(
+                      builder: (context) {
+                        final filteredContacts = contacts.where((c) {
+                          final name = c.displayName.toLowerCase();
+                          final phone = c.phones.isNotEmpty ? c.phones.first.number.toLowerCase() : '';
+                          return name.contains(searchQuery) || phone.contains(searchQuery);
+                        }).toList();
 
-                    return ListTile(
-                      leading: const CircleAvatar(child: Icon(Icons.person)),
-                      title: Text(contact.displayName),
-                      subtitle: Text(rawPhone),
-                      trailing: isRegistered
-                          ? IconButton(
-                              icon: const Icon(Icons.chat, color: Color(0xFF1E88E5)),
-                              onPressed: () {
-                                Navigator.pop(ctx);
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (c) => ConversationScreen(
-                                      myPhone: myPhone,
-                                      receiverPhone: rawPhone,
-                                      receiverName: contact.displayName,
+                        if (filteredContacts.isEmpty) {
+                          return const Center(child: Text('No contacts found'));
+                        }
+
+                        return ListView.builder(
+                          itemCount: filteredContacts.length,
+                          itemBuilder: (context, index) {
+                            final contact = filteredContacts[index];
+                            final rawPhone = contact.phones.isNotEmpty ? contact.phones.first.number : '';
+                            final cleanPhone = rawPhone.replaceAll(RegExp(r'\s+'), '');
+                            
+                            bool isRegistered = false;
+                            for (var regPhone in registeredPhones) {
+                              if (cleanPhone.endsWith(regPhone) || regPhone.endsWith(cleanPhone)) {
+                                isRegistered = true;
+                                break;
+                              }
+                            }
+
+                            return ListTile(
+                              leading: const CircleAvatar(child: Icon(Icons.person)),
+                              title: Text(contact.displayName),
+                              subtitle: Text(rawPhone),
+                              trailing: isRegistered
+                                  ? IconButton(
+                                      icon: const Icon(Icons.chat, color: Color(0xFF1E88E5)),
+                                      onPressed: () {
+                                        Navigator.pop(ctx);
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (c) => ConversationScreen(
+                                              myPhone: myPhone,
+                                              receiverPhone: rawPhone,
+                                              receiverName: contact.displayName,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    )
+                                  : TextButton(
+                                      onPressed: () {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text('Invitation sent to ${contact.displayName}')),
+                                        );
+                                      },
+                                      style: TextButton.styleFrom(
+                                        backgroundColor: Colors.grey[200],
+                                        foregroundColor: const Color(0xFF1E88E5),
+                                      ),
+                                      child: const Text('Invite', style: TextStyle(fontWeight: FontWeight.bold)),
                                     ),
-                                  ),
-                                );
-                              },
-                            )
-                          : TextButton(
-                              onPressed: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Invitation sent to ${contact.displayName}')),
-                                );
-                              },
-                              style: TextButton.styleFrom(
-                                backgroundColor: Colors.grey[200],
-                                foregroundColor: const Color(0xFF1E88E5),
-                              ),
-                              child: const Text('Invite', style: TextStyle(fontWeight: FontWeight.bold)),
-                            ),
-                    );
-                  },
-                ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         ),
       );
     } else {
