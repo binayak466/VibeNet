@@ -3,13 +3,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  try {
-    await Firebase.initializeApp();
-  } catch (e) {
-    debugPrint("Firebase init error: $e");
-  }
   runApp(const VibeNetApp());
 }
 
@@ -25,14 +20,61 @@ class VibeNetApp extends StatelessWidget {
         colorSchemeSeed: const Color(0xFF6750A4),
         useMaterial3: true,
       ),
-      home: FirebaseAuth.instance.currentUser != null
-          ? ChatListScreen(myPhone: FirebaseAuth.instance.currentUser!.phoneNumber ?? '')
-          : const LoginScreen(),
+      home: const FirebaseInitWrapper(),
     );
   }
 }
 
-// --- আসল SMS OTP সহ লগইন স্ক্রিন ---
+// ফায়ারবেস ইনিশিয়ালাইজেশন ও লোডিং স্ক্রিন হ্যান্ডলার
+class FirebaseInitWrapper extends StatefulWidget {
+  const FirebaseInitWrapper({super.key});
+
+  @override
+  State<FirebaseInitWrapper> createState() => _FirebaseInitWrapperState();
+}
+
+class _FirebaseInitWrapperState extends State<FirebaseInitWrapper> {
+  final Future<FirebaseApp> _initialization = Firebase.initializeApp();
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder(
+      future: _initialization,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Scaffold(
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Text(
+                  'Initialization Error: ${snapshot.error}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.red),
+                ),
+              ),
+            ),
+          );
+        }
+
+        if (snapshot.connectionState == ConnectionState.done) {
+          final currentUser = FirebaseAuth.instance.currentUser;
+          if (currentUser != null) {
+            return ChatListScreen(myPhone: currentUser.phoneNumber ?? '');
+          }
+          return const LoginScreen();
+        }
+
+        return const Scaffold(
+          body: Center(
+            child: CircularProgressIndicator(color: Color(0xFF6750A4)),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// --- লগইন ও SMS OTP স্ক্রিন ---
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -60,39 +102,46 @@ class _LoginScreenState extends State<LoginScreen> {
 
     setState(() => _isLoading = true);
 
-    await _auth.verifyPhoneNumber(
-      phoneNumber: '+91$phone',
-      verificationCompleted: (PhoneAuthCredential credential) async {
-        await _auth.signInWithCredential(credential);
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ChatListScreen(myPhone: '+91$phone'),
-            ),
+    try {
+      await _auth.verifyPhoneNumber(
+        phoneNumber: '+91$phone',
+        verificationCompleted: (PhoneAuthCredential credential) async {
+          await _auth.signInWithCredential(credential);
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ChatListScreen(myPhone: '+91$phone'),
+              ),
+            );
+          }
+        },
+        verificationFailed: (FirebaseAuthException e) {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('ভেরিফিকেশন ব্যর্থ হয়েছে: ${e.message}')),
           );
-        }
-      },
-      verificationFailed: (FirebaseAuthException e) {
-        setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('ভেরিফিকেশন ব্যর্থ হয়েছে: ${e.message}')),
-        );
-      },
-      codeSent: (String verificationId, int? resendToken) {
-        setState(() {
+        },
+        codeSent: (String verificationId, int? resendToken) {
+          setState(() {
+            _verificationId = verificationId;
+            _isOtpSent = true;
+            _isLoading = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('আপনার নম্বরে SMS পাঠানো হয়েছে!')),
+          );
+        },
+        codeAutoRetrievalTimeout: (String verificationId) {
           _verificationId = verificationId;
-          _isOtpSent = true;
-          _isLoading = false;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('আপনার নম্বরে SMS পাঠানো হয়েছে!')),
-        );
-      },
-      codeAutoRetrievalTimeout: (String verificationId) {
-        _verificationId = verificationId;
-      },
-    );
+        },
+      );
+    } catch (e) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('ত্রুটি: $e')),
+      );
+    }
   }
 
   void _verifyOtp() async {
@@ -134,66 +183,77 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Icon(Icons.forum_rounded, size: 80, color: Color(0xFF6750A4)),
-            const SizedBox(height: 16),
-            const Text(
-              'Welcome to VibeNet',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 32),
-            TextField(
-              controller: _phoneController,
-              keyboardType: TextInputType.phone,
-              enabled: !_isOtpSent,
-              decoration: const InputDecoration(
-                labelText: 'Mobile Number',
-                prefixText: '+91 ',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.phone),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 40),
+              const Icon(Icons.forum_rounded, size: 80, color: Color(0xFF6750A4)),
+              const SizedBox(height: 16),
+              const Text(
+                'Welcome to VibeNet',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
               ),
-            ),
-            const SizedBox(height: 16),
-            if (_isOtpSent) ...[
+              const SizedBox(height: 32),
               TextField(
-                controller: _otpController,
-                keyboardType: TextInputType.number,
+                controller: _phoneController,
+                keyboardType: TextInputType.phone,
+                enabled: !_isOtpSent,
                 decoration: const InputDecoration(
-                  labelText: 'Enter 6-digit OTP',
+                  labelText: 'Mobile Number',
+                  prefixText: '+91 ',
                   border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.lock_clock),
+                  prefixIcon: Icon(Icons.phone),
                 ),
               ),
               const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: _isLoading ? null : _verifyOtp,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6750A4),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+              if (_isOtpSent) ...[
+                TextField(
+                  controller: _otpController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Enter 6-digit OTP',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.lock_clock),
+                  ),
                 ),
-                child: _isLoading
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text('Verify SMS Code', style: TextStyle(fontSize: 16)),
-              ),
-            ] else ...[
-              ElevatedButton(
-                onPressed: _isLoading ? null : _sendOtp,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6750A4),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: _isLoading ? null : _verifyOtp,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF6750A4),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        )
+                      : const Text('Verify SMS Code', style: TextStyle(fontSize: 16)),
                 ),
-                child: _isLoading
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text('Send Real OTP', style: TextStyle(fontSize: 16)),
-              ),
+              ] else ...[
+                ElevatedButton(
+                  onPressed: _isLoading ? null : _sendOtp,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF6750A4),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        )
+                      : const Text('Send SMS OTP', style: TextStyle(fontSize: 16)),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
