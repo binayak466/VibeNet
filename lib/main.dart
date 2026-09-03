@@ -8,6 +8,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -178,15 +179,24 @@ class _FirebaseInitWrapperState extends State<FirebaseInitWrapper> {
 
   Future<Widget> _checkLoginStatus() async {
     try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedPhone = prefs.getString('logged_user_phone');
+      final savedToken = prefs.getString('logged_user_token') ?? '';
+
+      if (savedPhone != null && savedPhone.isNotEmpty) {
+        return MainDashboardScreen(myPhone: savedPhone, currentSessionToken: savedToken);
+      }
+
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
-        // ফায়ারস্টোর থেকে ইউজারের ডেটা সরাসরি খুঁজে বের করা
         final querySnapshot = await FirebaseFirestore.instance.collection('users').get();
         for (var doc in querySnapshot.docs) {
           final data = doc.data();
-          if (data['sessionToken'] != null && data['phone'] != null) {
+          if (data['phone'] != null) {
             final phone = data['phone'] as String;
-            final token = data['sessionToken'] as String;
+            final token = data['sessionToken'] as String? ?? '';
+            await prefs.setString('logged_user_phone', phone);
+            await prefs.setString('logged_user_token', token);
             return MainDashboardScreen(myPhone: phone, currentSessionToken: token);
           }
         }
@@ -344,7 +354,7 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      UserCredential userCred = await FirebaseAuth.instance.signInAnonymously();
+      await FirebaseAuth.instance.signInAnonymously();
       final newSessionToken = 'session_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(999999)}';
 
       final existingDoc = await FirebaseFirestore.instance.collection('users').doc(_fullPhoneNumber).get();
@@ -354,6 +364,10 @@ class _LoginScreenState extends State<LoginScreen> {
           'activeSessionToken': newSessionToken,
           'sessionToken': newSessionToken,
         });
+
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('logged_user_phone', _fullPhoneNumber);
+        await prefs.setString('logged_user_token', newSessionToken);
 
         if (mounted) {
           Navigator.pushAndRemoveUntil(
@@ -513,6 +527,11 @@ class _ProfileNameStepScreenState extends State<ProfileNameStepScreen> {
     if (name.isEmpty) return;
     final data = {'phone': widget.myPhone, 'name': name, 'photoUrl': widget.photoUrl ?? '', 'sessionToken': widget.sessionToken, 'activeSessionToken': widget.sessionToken};
     await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).set(data, SetOptions(merge: true));
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('logged_user_phone', widget.myPhone);
+    await prefs.setString('logged_user_token', widget.sessionToken);
+
     if (mounted) {
       Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (c) => MainDashboardScreen(myPhone: widget.myPhone, currentSessionToken: widget.sessionToken)), (r) => false);
     }
@@ -626,11 +645,19 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
         final activeToken = doc.data()!['activeSessionToken'] as String?;
         if (activeToken != null && activeToken != widget.currentSessionToken) {
           FirebaseAuth.instance.signOut();
-          Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (c) => const WelcomeTermsScreen()), (r) => false);
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Logged out due to login on another device')));
+          _clearPreferencesAndLogout();
         }
       }
     });
+  }
+
+  void _clearPreferencesAndLogout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+    if (mounted) {
+      Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (c) => const WelcomeTermsScreen()), (r) => false);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Logged out due to login on another device')));
+    }
   }
 
   @override
@@ -682,8 +709,12 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                       IconButton(
                         icon: const Icon(Icons.logout, color: Colors.red),
                         onPressed: () async {
+                          final prefs = await SharedPreferences.getInstance();
+                          await prefs.clear();
                           await FirebaseAuth.instance.signOut();
-                          Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => const WelcomeTermsScreen()));
+                          if (mounted) {
+                            Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => const WelcomeTermsScreen()));
+                          }
                         },
                       ),
                     ],
@@ -1040,12 +1071,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   leading: const Icon(Icons.logout, color: Colors.red),
                   title: const Text('Log Out', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
                   onTap: () async {
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.clear();
                     await FirebaseAuth.instance.signOut();
-                    Navigator.pushAndRemoveUntil(
-                      context,
-                      MaterialPageRoute(builder: (c) => const WelcomeTermsScreen()),
-                      (r) => false,
-                    );
+                    if (context.mounted) {
+                      Navigator.pushAndRemoveUntil(
+                        context,
+                        MaterialPageRoute(builder: (c) => const WelcomeTermsScreen()),
+                        (r) => false,
+                      );
+                    }
                   },
                 ),
               ],
