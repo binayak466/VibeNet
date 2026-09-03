@@ -725,24 +725,30 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
     });
   }
 
-  void _checkBiometricOnStartup() async {
+    void _checkBiometricOnStartup() async {
     try {
-      await Future.delayed(const Duration(milliseconds: 500));
       final doc = await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).get();
       if (doc.exists && doc.data() != null) {
         final bool isEnabled = doc.data()!['biometricEnabled'] ?? false;
         if (isEnabled) {
           bool authenticated = await _localAuth.authenticate(
             localizedReason: 'Please authenticate to unlock VibeNet',
-            options: const AuthenticationOptions(stickyAuth: true, biometricOnly: true),
+            options: const AuthenticationOptions(
+              stickyAuth: true,
+              biometricOnly: false,
+            ),
           );
           if (!authenticated) {
-            _checkBiometricOnStartup();
+            // যদি কেউ ক্যানسل করে, চাইলে আবার চেক করাতে পারেন
+            Future.delayed(const Duration(seconds: 1), () => _checkBiometricOnStartup());
           }
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      print("Biometric Error: $e");
+    }
   }
+
 
   @override
   void dispose() {
