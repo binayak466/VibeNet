@@ -563,7 +563,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
   }
 }
 
-// ফ্লেক্সিবল কন্ট্যাক্ট ম্যাচিং ফাংশন (যাতে নম্বর ফরম্যাট আলাদা হলেও কন্ট্যাক্ট খুঁজে পাওয়া যায়)
 void openContactsChat(BuildContext context, String myPhone) async {
   final status = await Permission.contacts.request();
   if (!status.isGranted) {
@@ -576,7 +575,6 @@ void openContactsChat(BuildContext context, String myPhone) async {
   final phoneContacts = await FlutterContacts.getContacts(withProperties: true, withPhoto: false);
   final usersSnapshot = await FirebaseFirestore.instance.collection('users').get();
   
-  // ফায়ারবেসের রেজিস্টার্ড নম্বরগুলোর একটি ম্যাপ তৈরি করা হচ্ছে (শেষ ১০টি ডিজিট দিয়ে নরম্যালরাইজ করে)
   final Map<String, String> registeredPhones = {};
   for (var doc in usersSnapshot.docs) {
     final data = doc.data();
@@ -962,6 +960,7 @@ class GlobalUserSearchDelegate extends SearchDelegate<String> {
   }
 }
 
+// --- WhatsApp স্টাইল Profile ও Settings স্ক্রিন (প্রোফাইল ছবি পরিবর্তন ও প্রাইভেসি অপশনসহ) ---
 class WhatsAppProfileScreen extends StatefulWidget {
   final String myPhone;
   const WhatsAppProfileScreen({super.key, required this.myPhone});
@@ -975,7 +974,15 @@ class _WhatsAppProfileScreenState extends State<WhatsAppProfileScreen> {
   String _about = 'Hey there! I am using VibeNet.';
   String _photoUrl = '';
   String _lastSeenOption = 'Everyone';
+  String _profilePhotoPrivacy = 'Everyone';
   bool _readReceipts = true;
+
+  final List<String> _sampleAvatars = [
+    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
+    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200',
+    'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200',
+    'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200',
+  ];
 
   @override
   void initState() {
@@ -991,9 +998,48 @@ class _WhatsAppProfileScreenState extends State<WhatsAppProfileScreen> {
         _about = doc.data()!['about'] ?? _about;
         _photoUrl = doc.data()!['photoUrl'] ?? '';
         _lastSeenOption = doc.data()!['lastSeen'] ?? 'Everyone';
+        _profilePhotoPrivacy = doc.data()!['profilePhotoPrivacy'] ?? 'Everyone';
         _readReceipts = doc.data()!['readReceipts'] ?? true;
       });
     }
+  }
+
+  void _changeProfilePhoto() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Choose Profile Photo', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E88E5))),
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 90,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: _sampleAvatars.length,
+                itemBuilder: (context, index) {
+                  final url = _sampleAvatars[index];
+                  return GestureDetector(
+                    onTap: () async {
+                      setState(() => _photoUrl = url);
+                      Navigator.pop(ctx);
+                      await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({'photoUrl': url});
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.only(right: 12),
+                      child: CircleAvatar(radius: 35, backgroundImage: NetworkImage(url)),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _openPrivacySettings() {
@@ -1023,6 +1069,20 @@ class _WhatsAppProfileScreenState extends State<WhatsAppProfileScreen> {
                     setState(() => _lastSeenOption = val);
                     setModalState(() {});
                     FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({'lastSeen': val});
+                  });
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Profile photo'),
+                subtitle: Text(_profilePhotoPrivacy),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  _showChoiceDialog('Profile photo', ['Everyone', 'My contacts', 'Nobody'], _profilePhotoPrivacy, (val) {
+                    setState(() => _profilePhotoPrivacy = val);
+                    setModalState(() {});
+                    FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({'profilePhotoPrivacy': val});
                   });
                 },
               ),
@@ -1088,11 +1148,27 @@ class _WhatsAppProfileScreenState extends State<WhatsAppProfileScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
             child: Row(
               children: [
-                CircleAvatar(
-                  radius: 35,
-                  backgroundColor: Colors.grey.shade200,
-                  backgroundImage: _photoUrl.isNotEmpty ? NetworkImage(_photoUrl) : null,
-                  child: _photoUrl.isEmpty ? const Icon(Icons.person, size: 40, color: Colors.grey) : null,
+                GestureDetector(
+                  onTap: _changeProfilePhoto,
+                  child: Stack(
+                    children: [
+                      CircleAvatar(
+                        radius: 35,
+                        backgroundColor: Colors.grey.shade200,
+                        backgroundImage: _photoUrl.isNotEmpty ? NetworkImage(_photoUrl) : null,
+                        child: _photoUrl.isEmpty ? const Icon(Icons.person, size: 40, color: Colors.grey) : null,
+                      ),
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(color: Color(0xFF1E88E5), shape: BoxShape.circle),
+                          child: const Icon(Icons.camera_alt, size: 14, color: Colors.white),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -1114,7 +1190,7 @@ class _WhatsAppProfileScreenState extends State<WhatsAppProfileScreen> {
           ListTile(
             leading: const Icon(Icons.lock_outline, color: Colors.grey),
             title: const Text('Privacy', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
-            subtitle: const Text('Last seen, read receipts', style: TextStyle(fontSize: 13, color: Colors.grey)),
+            subtitle: const Text('Last seen, profile photo, read receipts', style: TextStyle(fontSize: 13, color: Colors.grey)),
             onTap: _openPrivacySettings,
           ),
           const Divider(thickness: 1, height: 1),
