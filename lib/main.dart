@@ -526,6 +526,8 @@ class MainDashboardScreen extends StatefulWidget {
 }
 
 class _MainDashboardScreenState extends State<MainDashboardScreen> {
+  int _currentIndex = 0;
+
   @override
   void initState() {
     super.initState();
@@ -545,42 +547,178 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF121212),
-      appBar: AppBar(
-        title: const Text('VibeNet Chats'),
-        backgroundColor: const Color(0xFF121212),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout, color: Colors.red),
-            onPressed: () async {
-              await FirebaseAuth.instance.signOut();
-              Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => const WelcomeTermsScreen()));
-            },
-          )
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Top App Bar / Header section like the image
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      const CircleAvatar(
+                        radius: 18,
+                        backgroundColor: Color(0xFF1E88E5),
+                        child: Icon(Icons.person, color: Colors.white, size: 20),
+                      ),
+                      const SizedBox(width: 10),
+                      const Text('VibeNet', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      IconButton(icon: const Icon(Icons.search, color: Colors.white70), onPressed: () {}),
+                      IconButton(
+                        icon: const Icon(Icons.logout, color: Colors.red),
+                        onPressed: () async {
+                          await FirebaseAuth.instance.signOut();
+                          Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => const WelcomeTermsScreen()));
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            // Live Weather Card Widget
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [Color(0xFF1E88E5), Color(0xFF42A5F5)]),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: const [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.wb_sunny, color: Colors.amber, size: 28),
+                          SizedBox(width: 8),
+                          Text('28°C', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
+                        ],
+                      ),
+                      SizedBox(height: 4),
+                      Text('Kolkata, West Bengal', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                    ],
+                  ),
+                  Icon(Icons.location_on, color: Colors.white54, size: 28),
+                ],
+              ),
+            ),
+
+            // Status Stories Row
+            SizedBox(
+              height: 90,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                children: [
+                  _buildStatusItem('My Status', Icons.add),
+                  _buildStatusItem('Rahul', null),
+                  _buildStatusItem('Priya', null),
+                  _buildStatusItem('Anita', null),
+                  _buildStatusItem('Vikram', null),
+                ],
+              ),
+            ),
+
+            const Divider(color: Colors.white24, height: 1),
+
+            // Chats List / Dynamic Body based on bottom nav
+            Expanded(
+              child: _currentIndex == 0
+                  ? StreamBuilder<QuerySnapshot>(
+                      stream: FirebaseFirestore.instance.collection('users').snapshots(),
+                      builder: (context, snapshot) {
+                        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+                        final users = snapshot.data!.docs.where((d) => d.id != widget.myPhone).toList();
+                        
+                        if (users.isEmpty) {
+                          return const Center(child: Text('No contacts found', style: TextStyle(color: Colors.white54)));
+                        }
+
+                        return ListView.builder(
+                          itemCount: users.length,
+                          itemBuilder: (context, index) {
+                            final data = users[index].data() as Map<String, dynamic>;
+                            final name = data['name'] ?? 'User';
+                            final phone = data['phone'] ?? '';
+                            final photo = data['photoUrl'] ?? '';
+                            return ListTile(
+                              leading: CircleAvatar(
+                                backgroundImage: photo.isNotEmpty ? NetworkImage(photo) : null,
+                                child: photo.isEmpty ? const Icon(Icons.person) : null,
+                              ),
+                              title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                              subtitle: Text(maskPhoneNumber(phone), style: const TextStyle(color: Colors.white60)),
+                              trailing: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: const BoxDecoration(color: Color(0xFF1E88E5), shape: BoxShape.circle),
+                                child: const Text('1', style: TextStyle(fontSize: 10, color: Colors.white)),
+                              ),
+                              onTap: () {
+                                Navigator.push(context, MaterialPageRoute(builder: (c) => ConversationScreen(myPhone: widget.myPhone, receiverPhone: phone, receiverName: name)));
+                              },
+                            );
+                          },
+                        );
+                      },
+                    )
+                  : Center(
+                      child: Text(
+                        _currentIndex == 1 ? 'News Feed Section' : (_currentIndex == 2 ? 'Create Post' : (_currentIndex == 3 ? 'Reels Section' : 'Profile & Pay')),
+                        style: const TextStyle(color: Colors.white70, fontSize: 16),
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        onTap: (index) => setState(() => _currentIndex = index),
+        backgroundColor: const Color(0xFF1A1A1A),
+        selectedItemColor: const Color(0xFF1E88E5),
+        unselectedItemColor: Colors.white54,
+        type: BottomNavigationBarType.fixed,
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.chat_bubble), label: 'Chats'),
+          BottomNavigationBarItem(icon: Icon(Icons.article), label: 'Feed'),
+          BottomNavigationBarItem(icon: Icon(Icons.add_box, size: 30), label: 'Create'),
+          BottomNavigationBarItem(icon: Icon(Icons.play_arrow), label: 'Reels'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
         ],
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance.collection('users').snapshots(),
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-          final users = snapshot.data!.docs.where((d) => d.id != widget.myPhone).toList();
-          return ListView.builder(
-            itemCount: users.length,
-            itemBuilder: (context, index) {
-              final data = users[index].data() as Map<String, dynamic>;
-              final name = data['name'] ?? 'User';
-              final phone = data['phone'] ?? '';
-              final photo = data['photoUrl'] ?? '';
-              return ListTile(
-                leading: CircleAvatar(backgroundImage: photo.isNotEmpty ? NetworkImage(photo) : null, child: photo.isEmpty ? const Icon(Icons.person) : null),
-                title: Text(name),
-                subtitle: Text(maskPhoneNumber(phone)),
-                onTap: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (c) => ConversationScreen(myPhone: widget.myPhone, receiverPhone: phone, receiverName: name)));
-                },
-              );
-            },
-          );
-        },
+    );
+  }
+
+  Widget _buildStatusItem(String name, IconData? icon) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: const Color(0xFF1E88E5), width: 2),
+            ),
+            child: CircleAvatar(
+              radius: 24,
+              backgroundColor: Colors.white24,
+              child: Icon(icon ?? Icons.person, color: Colors.white, size: icon != null ? 20 : 24),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(name, style: const TextStyle(fontSize: 11, color: Colors.white70)),
+        ],
       ),
     );
   }
@@ -657,7 +795,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(widget.receiverName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            Text(maskPhoneNumber(widget.receiverPhone), style: const TextStyle(fontSize: 12)),
+            Text(maskPhoneNumber(widget.receiverPhone), style: const TextStyle(fontSize: 12, color: Colors.white60)),
           ],
         ),
         backgroundColor: const Color(0xFF1E88E5),
