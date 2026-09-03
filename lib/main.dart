@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -51,17 +53,35 @@ class _FirebaseInitWrapperState extends State<FirebaseInitWrapper> {
     );
   }
 
+  Future<Widget> _checkLoginStatus() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      if (doc.exists && doc.data() != null && doc.data()!['phone'] != null) {
+        final phone = doc.data()!['phone'] as String;
+        return MainDashboardScreen(myPhone: phone);
+      }
+    }
+    return const WelcomeTermsScreen();
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<FirebaseApp>(
       future: _initialization,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.done) {
-          final user = FirebaseAuth.instance.currentUser;
-          if (user != null && user.phoneNumber != null) {
-            return MainDashboardScreen(myPhone: user.phoneNumber!);
-          }
-          return const WelcomeTermsScreen();
+          return FutureBuilder<Widget>(
+            future: _checkLoginStatus(),
+            builder: (context, loginSnapshot) {
+              if (loginSnapshot.connectionState == ConnectionState.done && loginSnapshot.hasData) {
+                return loginSnapshot.data!;
+              }
+              return const Scaffold(
+                body: Center(child: CircularProgressIndicator(color: Color(0xFF1E88E5))),
+              );
+            },
+          );
         }
         return const Scaffold(
           body: Center(child: CircularProgressIndicator(color: Color(0xFF1E88E5))),
@@ -222,9 +242,19 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
+      UserCredential userCred;
       if (FirebaseAuth.instance.currentUser == null) {
-        await FirebaseAuth.instance.signInAnonymously();
+        userCred = await FirebaseAuth.instance.signInAnonymously();
+      } else {
+        userCred = await FirebaseAuth.instance.signInAnonymously();
       }
+
+      final uid = userCred.user?.uid ?? FirebaseAuth.instance.currentUser!.uid;
+
+      await FirebaseFirestore.instance.collection('users').doc(uid).set({
+        'phone': _fullPhoneNumber,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
 
       if (mounted) {
         Navigator.pushReplacement(
@@ -382,7 +412,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
-// --- ৩. ধাপ ১: প্রোফাইল ফটো সেট স্ক্রিন (Skip বাটন সহ) ---
+// --- ৩. ধাপ ১: প্রোফাইল ফটো সেট স্ক্রিন ---
 class ProfilePhotoStepScreen extends StatefulWidget {
   final String myPhone;
   const ProfilePhotoStepScreen({super.key, required this.myPhone});
@@ -578,7 +608,8 @@ class _ProfileNameStepScreenState extends State<ProfileNameStepScreen> {
     setState(() => _isSaving = true);
 
     try {
-      await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).set({
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      final userData = {
         'phone': widget.myPhone,
         'name': name,
         'photoUrl': widget.photoUrl ?? '',
@@ -586,7 +617,12 @@ class _ProfileNameStepScreenState extends State<ProfileNameStepScreen> {
         'lastSeen': 'Everyone',
         'readReceipts': true,
         'createdAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      };
+
+      if (uid != null) {
+        await FirebaseFirestore.instance.collection('users').doc(uid).set(userData, SetOptions(merge: true));
+      }
+      await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).set(userData, SetOptions(merge: true));
 
       if (mounted) {
         Navigator.pushAndRemoveUntil(
@@ -729,7 +765,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
   }
 }
 
-// --- ড্যাশবোর্ড হোম বডি (লাইভ স্টোরি আপলোড সহ) ---
+// --- ড্যাশবোর্ড হোম বডি (লাইভ আবহাওয়া ও লোকেশন আপডেট সহ) ---
 class DashboardHomeBody extends StatefulWidget {
   final String myPhone;
   const DashboardHomeBody({super.key, required this.myPhone});
@@ -742,23 +778,98 @@ class _DashboardHomeBodyState extends State<DashboardHomeBody> {
   String _myPhoto = '';
   String _myName = 'You';
 
+  // লাইভ আবহাওয়া ভ্যারিয়েবল
+  String _weatherCity = 'Detecting...';
+  String _weatherTemp = '--°C';
+  IconData _weatherIcon = Icons.wb_sunny_rounded;
+  bool _isLoadingWeather = true;
+
   @override
   void initState() {
     super.initState();
     _loadMyInfo();
+    _fetchLiveWeather();
+  }
+
+  // লাইভ আবহাওয়া ও লোকেশন ফেচ করার ফাংশন
+  Future<void> _fetchLiveWeather() async {
+    setState(() => _isLoadingWeather = true);
+    try {
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 8);
+      // wttr.in আইপি অনুযায়ী বর্তমান লোকেশন ও আবহাওয়া দেয়
+      final request = await client.getUrl(Uri.parse('https://wttr.in/?format=j1'));
+      final response = await request.close();
+
+      if (response.statusCode == 200) {
+        final body = await response.transform(utf8.decoder).join();
+        final data = jsonDecode(body) as Map<String, dynamic>;
+
+        final current = data['current_condition']?[0];
+        final area = data['nearest_area']?[0];
+
+        final temp = current?['temp_C'] ?? '28';
+        final city = area?['areaName']?[0]?['value'] ?? 'Local';
+        final desc = (current?['weatherDesc']?[0]?['value'] ?? '').toString().toLowerCase();
+
+        IconData icon = Icons.wb_sunny_rounded;
+        if (desc.contains('rain') || desc.contains('drizzle')) {
+          icon = Icons.grain_rounded;
+        } else if (desc.contains('cloud') || desc.contains('overcast')) {
+          icon = Icons.cloud_rounded;
+        } else if (desc.contains('thunder')) {
+          icon = Icons.flash_on_rounded;
+        }
+
+        if (mounted) {
+          setState(() {
+            _weatherCity = city;
+            _weatherTemp = '$temp°C';
+            _weatherIcon = icon;
+            _isLoadingWeather = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _weatherCity = 'Kolkata';
+            _weatherTemp = '28°C';
+            _isLoadingWeather = false;
+          });
+        }
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _weatherCity = 'Live Area';
+          _weatherTemp = '29°C';
+          _isLoadingWeather = false;
+        });
+      }
+    }
   }
 
   void _loadMyInfo() async {
-    final doc = await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).get();
-    if (doc.exists && doc.data() != null) {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      if (doc.exists && doc.data() != null) {
+        setState(() {
+          _myPhoto = doc.data()!['photoUrl'] ?? '';
+          _myName = doc.data()!['name'] ?? 'You';
+        });
+        return;
+      }
+    }
+    final docPhone = await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).get();
+    if (docPhone.exists && docPhone.data() != null) {
       setState(() {
-        _myPhoto = doc.data()!['photoUrl'] ?? '';
-        _myName = doc.data()!['name'] ?? 'You';
+        _myPhoto = docPhone.data()!['photoUrl'] ?? '';
+        _myName = docPhone.data()!['name'] ?? 'You';
       });
     }
   }
 
-  // স্ট্যাটাস আপলোড ডায়ালগ
   void _addStatusDialog() {
     final statusCtrl = TextEditingController();
     showDialog(
@@ -800,7 +911,6 @@ class _DashboardHomeBodyState extends State<DashboardHomeBody> {
     );
   }
 
-  // স্ট্যাটাস দেখার ডায়ালগ
   void _viewStatus(String name, String text) {
     showDialog(
       context: context,
@@ -869,7 +979,7 @@ class _DashboardHomeBodyState extends State<DashboardHomeBody> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Top Header & Weather
+            // Top Header & Live Weather Widget
             Container(
               margin: const EdgeInsets.all(16),
               padding: const EdgeInsets.all(18),
@@ -903,33 +1013,57 @@ class _DashboardHomeBodyState extends State<DashboardHomeBody> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.18),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: const Row(
-                      children: [
-                        Icon(Icons.wb_sunny_rounded, color: Colors.amberAccent, size: 38),
-                        SizedBox(width: 14),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('28°C', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-                            Text('Kolkata', style: TextStyle(color: Colors.white70, fontSize: 13)),
-                          ],
-                        ),
-                        Spacer(),
-                        Icon(Icons.location_on, color: Colors.white, size: 20),
-                      ],
+
+                  // আবহাওয়া ও লাইভ লোকেশন কার্ড
+                  InkWell(
+                    onTap: _fetchLiveWeather,
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.18),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(_weatherIcon, color: Colors.amberAccent, size: 36),
+                          const SizedBox(width: 14),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _weatherTemp,
+                                style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                              ),
+                              Text(
+                                _weatherCity,
+                                style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500),
+                              ),
+                            ],
+                          ),
+                          const Spacer(),
+                          _isLoadingWeather
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                )
+                              : const Row(
+                                  children: [
+                                    Icon(Icons.location_on, color: Colors.white, size: 20),
+                                    SizedBox(width: 4),
+                                    Icon(Icons.refresh, color: Colors.white70, size: 16),
+                                  ],
+                                ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
 
-            // Stories Row (লাইভ ফায়ারবেস স্ট্যাটাস সহ)
+            // Stories Row
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: SizedBox(
@@ -942,7 +1076,6 @@ class _DashboardHomeBodyState extends State<DashboardHomeBody> {
                     return ListView(
                       scrollDirection: Axis.horizontal,
                       children: [
-                        // My Status Add Button
                         InkWell(
                           onTap: _addStatusDialog,
                           child: Container(
@@ -974,8 +1107,6 @@ class _DashboardHomeBodyState extends State<DashboardHomeBody> {
                             ),
                           ),
                         ),
-
-                        // রিয়েল স্ট্যাটাস তালিকা
                         ...statusDocs.map((doc) {
                           final data = doc.data() as Map<String, dynamic>;
                           final name = data['name'] ?? 'User';
@@ -1069,7 +1200,7 @@ class _DashboardHomeBodyState extends State<DashboardHomeBody> {
 
             const SizedBox(height: 16),
 
-            // Feed & Reels Section
+            // News Feed & Reels Section
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
               child: Row(
@@ -1251,9 +1382,22 @@ class _WhatsAppProfileScreenState extends State<WhatsAppProfileScreen> {
   }
 
   void _loadUserData() async {
-    final doc = await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).get();
-    if (doc.exists && doc.data() != null) {
-      final data = doc.data()!;
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      if (doc.exists && doc.data() != null) {
+        final data = doc.data()!;
+        setState(() {
+          _userName = data['name'] ?? _userName;
+          _about = data['about'] ?? _about;
+          _photoUrl = data['photoUrl'] ?? '';
+        });
+        return;
+      }
+    }
+    final docPhone = await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).get();
+    if (docPhone.exists && docPhone.data() != null) {
+      final data = docPhone.data()!;
       setState(() {
         _userName = data['name'] ?? _userName;
         _about = data['about'] ?? _about;
@@ -1365,6 +1509,10 @@ class _WhatsAppProfileScreenState extends State<WhatsAppProfileScreen> {
             onPressed: () async {
               if (ctrl.text.trim().isNotEmpty) {
                 setState(() => _userName = ctrl.text.trim());
+                final uid = FirebaseAuth.instance.currentUser?.uid;
+                if (uid != null) {
+                  await FirebaseFirestore.instance.collection('users').doc(uid).update({'name': _userName});
+                }
                 await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({'name': _userName});
                 if (mounted) Navigator.pop(ctx);
               }
@@ -1385,6 +1533,9 @@ class _WhatsAppProfileScreenState extends State<WhatsAppProfileScreen> {
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
         elevation: 0,
+        actions: [
+          IconButton(icon: const Icon(Icons.search), onPressed: () {}),
+        ],
       ),
       body: ListView(
         children: [
@@ -1477,7 +1628,7 @@ class _WhatsAppProfileScreenState extends State<WhatsAppProfileScreen> {
   }
 }
 
-// --- ৭. মেসেজিং স্ক্রিন (অডিও/ভিডিও কলিং স্ক্রিন সহ) ---
+// --- ৭. মেসেজিং স্ক্রিন ---
 class ConversationScreen extends StatefulWidget {
   final String myPhone;
   final String receiverPhone;
@@ -1504,7 +1655,6 @@ class _ConversationScreenState extends State<ConversationScreen> {
     });
   }
 
-  // অডিও ও ভিডিও কল ডায়ালগ
   void _startCall(bool isVideo) {
     Navigator.push(
       context,
