@@ -351,6 +351,7 @@ class _LoginScreenState extends State<LoginScreen> {
         await FirebaseFirestore.instance.collection('users').doc(_fullPhoneNumber).update({
           'activeSessionToken': newSessionToken,
           'sessionToken': newSessionToken,
+          'lastActive': FieldValue.serverTimestamp(),
         });
 
         if (mounted) {
@@ -509,7 +510,14 @@ class _ProfileNameStepScreenState extends State<ProfileNameStepScreen> {
   void _finish() async {
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) return;
-    final data = {'phone': widget.myPhone, 'name': name, 'photoUrl': widget.photoUrl ?? '', 'sessionToken': widget.sessionToken, 'activeSessionToken': widget.sessionToken};
+    final data = {
+      'phone': widget.myPhone,
+      'name': name,
+      'photoUrl': widget.photoUrl ?? '',
+      'sessionToken': widget.sessionToken,
+      'activeSessionToken': widget.sessionToken,
+      'lastActive': FieldValue.serverTimestamp(),
+    };
     await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).set(data, SetOptions(merge: true));
 
     if (mounted) {
@@ -535,10 +543,15 @@ class _ProfileNameStepScreenState extends State<ProfileNameStepScreen> {
   }
 }
 
-class ContactsScreen extends StatelessWidget {
+class ContactsScreen extends StatefulWidget {
   final String myPhone;
   const ContactsScreen({super.key, required this.myPhone});
 
+  @override
+  State<ContactsScreen> createState() => _ContactsScreenState();
+}
+
+class _ContactsScreenState extends State<ContactsScreen> {
   Future<void> _fetchAndShowContacts(BuildContext context) async {
     if (await Permission.contacts.request().isGranted) {
       final contacts = await FlutterContacts.getContacts(withProperties: true);
@@ -558,14 +571,13 @@ class ContactsScreen extends StatelessWidget {
         context: context,
         isScrollControlled: true,
         shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-        builder: (ctx) => StatefulBuilder(
-          builder: (context, setStateModal) {
-            String searchQuery = '';
-            
-            return Container(
-              height: MediaQuery.of(context).size.height * 0.75,
-              padding: const EdgeInsets.all(16),
-              child: Column(
+        builder: (ctx) => Container(
+          height: MediaQuery.of(context).size.height * 0.75,
+          padding: const EdgeInsets.all(16),
+          child: StatefulBuilder(
+            builder: (BuildContext context, StateSetter setStateModal) {
+              String searchQuery = '';
+              return Column(
                 children: [
                   const Text('All Phone Contacts', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
@@ -625,7 +637,7 @@ class ContactsScreen extends StatelessWidget {
                                           context,
                                           MaterialPageRoute(
                                             builder: (c) => ConversationScreen(
-                                              myPhone: myPhone,
+                                              myPhone: widget.myPhone,
                                               receiverPhone: rawPhone,
                                               receiverName: contact.displayName,
                                             ),
@@ -652,9 +664,9 @@ class ContactsScreen extends StatelessWidget {
                     ),
                   ),
                 ],
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
       );
     } else {
@@ -681,7 +693,7 @@ class MainDashboardScreen extends StatefulWidget {
   State<MainDashboardScreen> createState() => _MainDashboardScreenState();
 }
 
-class _MainDashboardScreenState extends State<MainDashboardScreen> {
+class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsBindingObserver {
   int _currentIndex = 0;
   String _searchQuery = '';
   bool _isSearching = false;
@@ -690,6 +702,9 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _updateActiveStatus();
+
     FirebaseFirestore.instance.collection('users').doc(widget.myPhone).snapshots().listen((doc) {
       if (doc.exists && doc.data() != null) {
         final activeToken = doc.data()!['activeSessionToken'] as String?;
@@ -703,7 +718,29 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
   }
 
   @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _updateActiveStatus();
+    }
+  }
+
+  void _updateActiveStatus() async {
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({
+        'lastActive': FieldValue.serverTimestamp(),
+      });
+    } catch (_) {}
+  }
+
+  @override
   Widget build(BuildContext context) {
+    _updateActiveStatus();
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -1219,11 +1256,17 @@ class _ConversationScreenState extends State<ConversationScreen> {
                         if (difference.inMinutes < 5) {
                           statusText = 'Online';
                         } else {
-                          statusText = 'Last seen ${activeTime.hour}:${activeTime.minute.toString().padLeft(2, '0')}';
+                          int hour = activeTime.hour;
+                          String period = hour >= 12 ? 'PM' : 'AM';
+                          hour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
+                          String minute = activeTime.minute.toString().padLeft(2, '0');
+                          statusText = 'Last seen at $hour:$minute $period';
                         }
                       } else {
                         statusText = 'Offline';
                       }
+                    } else {
+                      statusText = 'Offline';
                     }
                   }
                   return Column(
