@@ -1182,6 +1182,27 @@ class ConversationScreen extends StatefulWidget {
 class _ConversationScreenState extends State<ConversationScreen> {
   final TextEditingController _msgCtrl = TextEditingController();
 
+  @override
+  void initState() {
+    super.initState();
+    _setMyActiveStatus(true);
+  }
+
+  @override
+  void dispose() {
+    _setMyActiveStatus(false);
+    super.dispose();
+  }
+
+  void _setMyActiveStatus(bool isOnline) async {
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({
+        'isOnline': isOnline,
+        'lastActive': FieldValue.serverTimestamp(),
+      });
+    } catch (_) {}
+  }
+
   void _send() async {
     final text = _msgCtrl.text.trim();
     if (text.isEmpty) return;
@@ -1252,12 +1273,14 @@ class _ConversationScreenState extends State<ConversationScreen> {
                     final lastSeenPrivacy = data?['lastSeenPrivacy'] ?? 'everyone';
                     
                     if (lastSeenPrivacy != 'nobody') {
-                      final lastActive = data?['lastActive'] ?? data?['timestamp'];
-                      if (lastActive != null && lastActive is Timestamp) {
+                      final bool isExplicitlyOnline = data?['isOnline'] ?? false;
+                      final lastActive = data?['lastActive'];
+
+                      if (isExplicitlyOnline && lastActive != null && lastActive is Timestamp) {
                         final DateTime activeTime = lastActive.toDate();
                         final difference = DateTime.now().difference(activeTime);
                         
-                        if (difference.inMinutes < 5) {
+                        if (difference.inSeconds < 30) {
                           statusText = 'Online';
                         } else {
                           int hour = activeTime.hour;
@@ -1266,8 +1289,15 @@ class _ConversationScreenState extends State<ConversationScreen> {
                           String minute = activeTime.minute.toString().padLeft(2, '0');
                           statusText = 'Last seen at $hour:$minute $period';
                         }
+                      } else if (lastActive != null && lastActive is Timestamp) {
+                        final DateTime activeTime = lastActive.toDate();
+                        int hour = activeTime.hour;
+                        String period = hour >= 12 ? 'PM' : 'AM';
+                        hour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
+                        String minute = activeTime.minute.toString().padLeft(2, '0');
+                        statusText = 'Last seen at $hour:$minute $period';
                       } else {
-                        statusText = 'Online';
+                        statusText = 'Offline';
                       }
                     } else {
                       statusText = 'Offline';
