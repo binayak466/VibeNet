@@ -948,7 +948,7 @@ class GlobalUserSearchDelegate extends SearchDelegate<String> {
   }
 }
 
-// --- WhatsApp স্টাইল Profile ও Settings স্ক্রিন ---
+// --- WhatsApp স্টাইল Profile ও Settings স্ক্রিন (Privacy অপশনসহ) ---
 class WhatsAppProfileScreen extends StatefulWidget {
   final String myPhone;
   const WhatsAppProfileScreen({super.key, required this.myPhone});
