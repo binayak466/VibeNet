@@ -7,6 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:image_picker/image_picker.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -171,6 +172,13 @@ class _FirebaseInitWrapperState extends State<FirebaseInitWrapper> {
         final phone = doc.data()!['phone'] as String;
         final token = doc.data()!['sessionToken'] as String? ?? '';
         return MainDashboardScreen(myPhone: phone, currentSessionToken: token);
+      } else {
+        final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        if (userDoc.exists && userDoc.data()!['phone'] != null) {
+          final phone = userDoc.data()!['phone'] as String;
+          final token = userDoc.data()!['sessionToken'] as String? ?? '';
+          return MainDashboardScreen(myPhone: phone, currentSessionToken: token);
+        }
       }
     }
     return const WelcomeTermsScreen();
@@ -331,18 +339,28 @@ class _LoginScreenState extends State<LoginScreen> {
       final uid = userCred.user!.uid;
       final newSessionToken = 'session_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(999999)}';
 
-      await FirebaseFirestore.instance.collection('users').doc(uid).set({
-        'phone': _fullPhoneNumber,
-        'sessionToken': newSessionToken,
-      }, SetOptions(merge: true));
+      final existingDoc = await FirebaseFirestore.instance.collection('users').doc(_fullPhoneNumber).get();
+      
+      if (existingDoc.exists && existingDoc.data() != null) {
+        await FirebaseFirestore.instance.collection('users').doc(_fullPhoneNumber).update({
+          'activeSessionToken': newSessionToken,
+        });
+        await FirebaseFirestore.instance.collection('users').doc(uid).set({
+          'phone': _fullPhoneNumber,
+          'sessionToken': newSessionToken,
+        }, SetOptions(merge: true));
 
-      await FirebaseFirestore.instance.collection('users').doc(_fullPhoneNumber).set({
-        'phone': _fullPhoneNumber,
-        'activeSessionToken': newSessionToken,
-      }, SetOptions(merge: true));
-
-      if (mounted) {
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => ProfilePhotoStepScreen(myPhone: _fullPhoneNumber, sessionToken: newSessionToken)));
+        if (mounted) {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (context) => MainDashboardScreen(myPhone: _fullPhoneNumber, currentSessionToken: newSessionToken)),
+            (r) => false,
+          );
+        }
+      } else {
+        if (mounted) {
+          Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => ProfilePhotoStepScreen(myPhone: _fullPhoneNumber, sessionToken: newSessionToken)));
+        }
       }
     } catch (_) {
       if (mounted) {
@@ -470,7 +488,7 @@ class _ProfileNameStepScreenState extends State<ProfileNameStepScreen> {
   void _finish() async {
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) return;
-    final data = {'phone': widget.myPhone, 'name': name, 'photoUrl': widget.photoUrl ?? '', 'sessionToken': widget.sessionToken};
+    final data = {'phone': widget.myPhone, 'name': name, 'photoUrl': widget.photoUrl ?? '', 'sessionToken': widget.sessionToken, 'activeSessionToken': widget.sessionToken};
     await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).set(data, SetOptions(merge: true));
     if (mounted) {
       Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (c) => MainDashboardScreen(myPhone: widget.myPhone, currentSessionToken: widget.sessionToken)), (r) => false);
@@ -766,7 +784,9 @@ class _DashboardHomeBodyState extends State<DashboardHomeBody> {
                       CircleAvatar(
                         radius: 16,
                         backgroundColor: Colors.white24,
-                        backgroundImage: _myPhotoUrl.isNotEmpty ? NetworkImage(_myPhotoUrl) : null,
+                        backgroundImage: _myPhotoUrl.isNotEmpty
+                            ? (_myPhotoUrl.startsWith('/') ? FileImage(File(_myPhotoUrl)) : NetworkImage(_myPhotoUrl)) as ImageProvider
+                            : null,
                         child: _myPhotoUrl.isEmpty ? const Icon(Icons.person, size: 18, color: Colors.white) : null,
                       ),
                       const SizedBox(width: 10),
@@ -944,7 +964,7 @@ class GlobalUserSearchDelegate extends SearchDelegate<String> {
             final photo = data['photoUrl'] ?? '';
 
             return ListTile(
-              leading: CircleAvatar(backgroundImage: photo.isNotEmpty ? NetworkImage(photo) : null, child: photo.isEmpty ? const Icon(Icons.person) : null),
+              leading: CircleAvatar(backgroundImage: photo.isNotEmpty && !photo.startsWith('/') ? NetworkImage(photo) : (photo.isNotEmpty ? FileImage(File(photo)) as ImageProvider : null), child: photo.isEmpty ? const Icon(Icons.person) : null),
               title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
               subtitle: Text(maskPhoneNumber(phone)),
               trailing: const Icon(Icons.chat_bubble_outline, color: Color(0xFF1E88E5)),
@@ -960,7 +980,6 @@ class GlobalUserSearchDelegate extends SearchDelegate<String> {
   }
 }
 
-// --- WhatsApp স্টাইল Profile ও Settings স্ক্রিন (প্রোফাইল ছবি পরিবর্তন ও প্রাইভেসি অপশনসহ) ---
 class WhatsAppProfileScreen extends StatefulWidget {
   final String myPhone;
   const WhatsAppProfileScreen({super.key, required this.myPhone});
@@ -976,13 +995,6 @@ class _WhatsAppProfileScreenState extends State<WhatsAppProfileScreen> {
   String _lastSeenOption = 'Everyone';
   String _profilePhotoPrivacy = 'Everyone';
   bool _readReceipts = true;
-
-  final List<String> _sampleAvatars = [
-    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
-    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200',
-    'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200',
-    'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200',
-  ];
 
   @override
   void initState() {
@@ -1004,42 +1016,22 @@ class _WhatsAppProfileScreenState extends State<WhatsAppProfileScreen> {
     }
   }
 
-  void _changeProfilePhoto() {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Choose Profile Photo', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E88E5))),
-            const SizedBox(height: 16),
-            SizedBox(
-              height: 90,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: _sampleAvatars.length,
-                itemBuilder: (context, index) {
-                  final url = _sampleAvatars[index];
-                  return GestureDetector(
-                    onTap: () async {
-                      setState(() => _photoUrl = url);
-                      Navigator.pop(ctx);
-                      await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({'photoUrl': url});
-                    },
-                    child: Container(
-                      margin: const EdgeInsets.only(right: 12),
-                      child: CircleAvatar(radius: 35, backgroundImage: NetworkImage(url)),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+  void _pickImageFromGallery() async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+
+    if (image != null) {
+      String imagePath = image.path;
+      setState(() => _photoUrl = imagePath);
+      await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({
+        'photoUrl': imagePath,
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('প্রোফাইল ছবি সফলভাবে আপডেট করা হয়েছে!')),
+        );
+      }
+    }
   }
 
   void _openPrivacySettings() {
@@ -1149,13 +1141,15 @@ class _WhatsAppProfileScreenState extends State<WhatsAppProfileScreen> {
             child: Row(
               children: [
                 GestureDetector(
-                  onTap: _changeProfilePhoto,
+                  onTap: _pickImageFromGallery,
                   child: Stack(
                     children: [
                       CircleAvatar(
                         radius: 35,
                         backgroundColor: Colors.grey.shade200,
-                        backgroundImage: _photoUrl.isNotEmpty ? NetworkImage(_photoUrl) : null,
+                        backgroundImage: _photoUrl.isNotEmpty
+                            ? (_photoUrl.startsWith('/') ? FileImage(File(_photoUrl)) : NetworkImage(_photoUrl)) as ImageProvider
+                            : null,
                         child: _photoUrl.isEmpty ? const Icon(Icons.person, size: 40, color: Colors.grey) : null,
                       ),
                       Positioned(
@@ -1193,7 +1187,7 @@ class _WhatsAppProfileScreenState extends State<WhatsAppProfileScreen> {
             subtitle: const Text('Last seen, profile photo, read receipts', style: TextStyle(fontSize: 13, color: Colors.grey)),
             onTap: _openPrivacySettings,
           ),
-          const Divider(thickness: 1, height: 1),
+          const Divider(thickness:, height: 1), // Updated line
           ListTile(
             leading: const Icon(Icons.translate, color: Color(0xFF1E88E5)),
             title: const Text('App Language / ভাষা'),
@@ -1247,8 +1241,29 @@ class _ConversationScreenState extends State<ConversationScreen> {
       'sender': widget.myPhone,
       'receiver': widget.receiverPhone,
       'text': text,
+      'isSeen': false,
       'timestamp': FieldValue.serverTimestamp(),
     });
+  }
+
+  void _deleteMessage(String docId) async {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Message'),
+        content: const Text('Are you sure you want to delete this message?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await FirebaseFirestore.instance.collection('chats').doc(docId).delete();
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -1283,15 +1298,47 @@ class _ConversationScreenState extends State<ConversationScreen> {
                   reverse: true,
                   itemCount: docs.length,
                   itemBuilder: (context, index) {
-                    final data = docs[index].data() as Map<String, dynamic>;
+                    final doc = docs[index];
+                    final data = doc.data() as Map<String, dynamic>;
                     final isMe = data['sender'] == widget.myPhone;
-                    return Align(
-                      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(color: isMe ? const Color(0xFFDCF8C6) : Colors.white, borderRadius: BorderRadius.circular(12)),
-                        child: Text(data['text'] ?? '', style: const TextStyle(fontSize: 15)),
+                    final isSeen = data['isSeen'] ?? false;
+
+                    // যদি মেসেজটি রিসিভারের দিক থেকে ওপেন করা হয়, তবে সিন বা ব্লু টিক আপডেট হবে
+                    if (!isMe && !isSeen) {
+                      FirebaseFirestore.instance.collection('chats').doc(doc.id).update({'isSeen': true});
+                    }
+
+                    return GestureDetector(
+                      onLongPress: () => _deleteMessage(doc.id),
+                      child: Align(
+                        alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isMe ? const Color(0xFFDCF8C6) : Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  data['text'] ?? '',
+                                  style: const TextStyle(fontSize: 15),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              if (isMe)
+                                Icon(
+                                  Icons.done_all,
+                                  size: 16,
+                                  color: isSeen ? Colors.blue : Colors.grey,
+                                ),
+                            ],
+                          ),
+                        ),
                       ),
                     );
                   },
@@ -1303,8 +1350,16 @@ class _ConversationScreenState extends State<ConversationScreen> {
             padding: const EdgeInsets.all(8.0),
             child: Row(
               children: [
-                Expanded(child: TextField(controller: _msgCtrl, decoration: const InputDecoration(hintText: 'Type a message...'))),
-                IconButton(icon: const Icon(Icons.send, color: Color(0xFF1E88E5)), onPressed: _send),
+                Expanded(
+                  child: TextField(
+                    controller: _msgCtrl,
+                    decoration: const InputDecoration(hintText: 'Type a message...'),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.send, color: Color(0xFF1E88E5)),
+                  onPressed: _send,
+                ),
               ],
             ),
           ),
