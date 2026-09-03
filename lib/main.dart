@@ -1,9 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_contacts/flutter_contacts.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -59,7 +62,8 @@ class _FirebaseInitWrapperState extends State<FirebaseInitWrapper> {
       final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
       if (doc.exists && doc.data() != null && doc.data()!['phone'] != null) {
         final phone = doc.data()!['phone'] as String;
-        return MainDashboardScreen(myPhone: phone);
+        final token = doc.data()!['sessionToken'] as String? ?? '';
+        return MainDashboardScreen(myPhone: phone, currentSessionToken: token);
       }
     }
     return const WelcomeTermsScreen();
@@ -124,18 +128,10 @@ class WelcomeTermsScreen extends StatelessWidget {
                     child: const Icon(Icons.forum_rounded, size: 90, color: Color(0xFF1E88E5)),
                   ),
                   const SizedBox(height: 32),
-                  RichText(
+                  const Text(
+                    'Simple. Secure. Reliable messaging with your saved contacts.',
                     textAlign: TextAlign.center,
-                    text: const TextSpan(
-                      style: TextStyle(color: Colors.grey, fontSize: 13, height: 1.5),
-                      children: [
-                        TextSpan(text: 'Read our '),
-                        TextSpan(text: 'Privacy Policy', style: TextStyle(color: Color(0xFF1E88E5), fontWeight: FontWeight.bold)),
-                        TextSpan(text: '. Tap "Agree and continue" to accept the '),
-                        TextSpan(text: 'Terms of Service', style: TextStyle(color: Color(0xFF1E88E5), fontWeight: FontWeight.bold)),
-                        TextSpan(text: '.'),
-                      ],
-                    ),
+                    style: TextStyle(color: Colors.grey, fontSize: 14),
                   ),
                 ],
               ),
@@ -169,7 +165,7 @@ class WelcomeTermsScreen extends StatelessWidget {
   }
 }
 
-// --- ২. কান্ট্রি সিলেক্ট ও ফোন নম্বর লগইন স্ক্রিন ---
+// --- ২. কান্ট্রি সিলেক্ট ও সিঙ্গেল ডিভাইস লগইন সেশন ---
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -190,9 +186,6 @@ class _LoginScreenState extends State<LoginScreen> {
     {'name': 'Bangladesh', 'code': '+880'},
     {'name': 'United States', 'code': '+1'},
     {'name': 'United Kingdom', 'code': '+44'},
-    {'name': 'United Arab Emirates', 'code': '+971'},
-    {'name': 'Saudi Arabia', 'code': '+966'},
-    {'name': 'Nepal', 'code': '+977'},
   ];
 
   late String _selectedCountry;
@@ -208,9 +201,7 @@ class _LoginScreenState extends State<LoginScreen> {
   void _sendOtp() {
     final phone = _phoneController.text.trim();
     if (phone.length < 7) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('সঠিক মোবাইল নম্বর দিন')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('সঠিক মোবাইল নম্বর দিন')));
       return;
     }
 
@@ -251,16 +242,29 @@ class _LoginScreenState extends State<LoginScreen> {
 
       final uid = userCred.user?.uid ?? FirebaseAuth.instance.currentUser!.uid;
 
+      // নতুন ডিভাইসের জন্য ইউনিক সেশন টোকেন তৈরি (যাতে অন্য ডিভাইসের লগইন বন্ধ হয়ে যায়)
+      final newSessionToken = 'session_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(999999)}';
+
       await FirebaseFirestore.instance.collection('users').doc(uid).set({
         'phone': _fullPhoneNumber,
+        'sessionToken': newSessionToken,
         'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      // ফোন নম্বরের মেইন ডকুমেন্টে সেশন টোকেন আপডেট করা
+      await FirebaseFirestore.instance.collection('users').doc(_fullPhoneNumber).set({
+        'phone': _fullPhoneNumber,
+        'activeSessionToken': newSessionToken,
       }, SetOptions(merge: true));
 
       if (mounted) {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => ProfilePhotoStepScreen(myPhone: _fullPhoneNumber),
+            builder: (context) => ProfilePhotoStepScreen(
+              myPhone: _fullPhoneNumber,
+              sessionToken: newSessionToken,
+            ),
           ),
         );
       }
@@ -269,7 +273,7 @@ class _LoginScreenState extends State<LoginScreen> {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => ProfilePhotoStepScreen(myPhone: _fullPhoneNumber),
+            builder: (context) => ProfilePhotoStepScreen(myPhone: _fullPhoneNumber, sessionToken: ''),
           ),
         );
       }
@@ -319,10 +323,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   return DropdownMenuItem<String>(
                     value: country['name'],
                     child: Center(
-                      child: Text(
-                        country['name']!,
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-                      ),
+                      child: Text(country['name']!, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
                     ),
                   );
                 }).toList(),
@@ -337,14 +338,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 Container(
                   width: 65,
                   padding: const EdgeInsets.symmetric(vertical: 12),
-                  decoration: const BoxDecoration(
-                    border: Border(bottom: BorderSide(color: Color(0xFF1E88E5), width: 1.5)),
-                  ),
+                  decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFF1E88E5), width: 1.5))),
                   alignment: Alignment.center,
-                  child: Text(
-                    _selectedCountryCode,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
+                  child: Text(_selectedCountryCode, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -354,12 +350,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     enabled: !_isOtpSent,
                     decoration: const InputDecoration(
                       hintText: 'phone number',
-                      enabledBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: Color(0xFF1E88E5), width: 1.5),
-                      ),
-                      focusedBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: Color(0xFF1E88E5), width: 2),
-                      ),
+                      enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF1E88E5), width: 1.5)),
+                      focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF1E88E5), width: 2)),
                     ),
                   ),
                 ),
@@ -373,10 +365,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 controller: _otpController,
                 keyboardType: TextInputType.number,
                 textAlign: TextAlign.center,
-                decoration: const InputDecoration(
-                  labelText: 'Enter 6-digit Code (123456)',
-                  border: OutlineInputBorder(),
-                ),
+                decoration: const InputDecoration(labelText: 'Enter 6-digit Code (123456)', border: OutlineInputBorder()),
               ),
               const SizedBox(height: 24),
               ElevatedButton(
@@ -412,10 +401,11 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
-// --- ৩. ধাপ ১: প্রোফাইল ফটো সেট স্ক্রিন ---
+// --- ৩. প্রোফাইল ফটো স্ক্রিন ---
 class ProfilePhotoStepScreen extends StatefulWidget {
   final String myPhone;
-  const ProfilePhotoStepScreen({super.key, required this.myPhone});
+  final String sessionToken;
+  const ProfilePhotoStepScreen({super.key, required this.myPhone, required this.sessionToken});
 
   @override
   State<ProfilePhotoStepScreen> createState() => _ProfilePhotoStepScreenState();
@@ -427,7 +417,6 @@ class _ProfilePhotoStepScreenState extends State<ProfilePhotoStepScreen> {
     'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200',
     'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200',
     'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200',
-    'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200',
   ];
   String? _selectedPhoto;
 
@@ -455,10 +444,7 @@ class _ProfilePhotoStepScreenState extends State<ProfilePhotoStepScreen> {
                       setState(() => _selectedPhoto = _avatarChoices[i]);
                       Navigator.pop(ctx);
                     },
-                    child: CircleAvatar(
-                      radius: 35,
-                      backgroundImage: NetworkImage(_avatarChoices[i]),
-                    ),
+                    child: CircleAvatar(radius: 35, backgroundImage: NetworkImage(_avatarChoices[i])),
                   );
                 },
               ),
@@ -476,6 +462,7 @@ class _ProfilePhotoStepScreenState extends State<ProfilePhotoStepScreen> {
         builder: (context) => ProfileNameStepScreen(
           myPhone: widget.myPhone,
           photoUrl: photo,
+          sessionToken: widget.sessionToken,
         ),
       ),
     );
@@ -503,13 +490,8 @@ class _ProfilePhotoStepScreenState extends State<ProfilePhotoStepScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 24.0),
           child: Column(
             children: [
-              const Text(
-                'Add a profile photo so your friends can recognize you on VibeNet.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey, fontSize: 14),
-              ),
+              const Text('Add a profile photo so your friends can recognize you on VibeNet.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey, fontSize: 14)),
               const Spacer(),
-
               InkWell(
                 onTap: _choosePhotoDialog,
                 borderRadius: BorderRadius.circular(80),
@@ -519,19 +501,14 @@ class _ProfilePhotoStepScreenState extends State<ProfilePhotoStepScreen> {
                       radius: 75,
                       backgroundColor: Colors.grey.shade200,
                       backgroundImage: _selectedPhoto != null ? NetworkImage(_selectedPhoto!) : null,
-                      child: _selectedPhoto == null
-                          ? const Icon(Icons.person, size: 85, color: Colors.grey)
-                          : null,
+                      child: _selectedPhoto == null ? const Icon(Icons.person, size: 85, color: Colors.grey) : null,
                     ),
                     Positioned(
                       bottom: 4,
                       right: 4,
                       child: Container(
                         padding: const EdgeInsets.all(10),
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF1E88E5),
-                          shape: BoxShape.circle,
-                        ),
+                        decoration: const BoxDecoration(color: Color(0xFF1E88E5), shape: BoxShape.circle),
                         child: const Icon(Icons.camera_alt, color: Colors.white, size: 24),
                       ),
                     ),
@@ -542,33 +519,16 @@ class _ProfilePhotoStepScreenState extends State<ProfilePhotoStepScreen> {
               TextButton.icon(
                 onPressed: _choosePhotoDialog,
                 icon: const Icon(Icons.photo_library, size: 18),
-                label: Text(
-                  _selectedPhoto == null ? 'Choose photo' : 'Change photo',
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
+                label: Text(_selectedPhoto == null ? 'Choose photo' : 'Change photo', style: const TextStyle(fontWeight: FontWeight.w600)),
               ),
-
               const Spacer(),
-
               ElevatedButton(
                 onPressed: () => _proceedToNameStep(_selectedPhoto),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1E88E5),
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size.fromHeight(48),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                child: Text(
-                  _selectedPhoto != null ? 'Next' : 'Continue without photo',
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E88E5), foregroundColor: Colors.white, minimumSize: const Size.fromHeight(48), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                child: Text(_selectedPhoto != null ? 'Next' : 'Continue without photo', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               ),
               const SizedBox(height: 10),
-
-              TextButton(
-                onPressed: () => _proceedToNameStep(null),
-                child: const Text('Skip for now', style: TextStyle(color: Colors.grey, fontSize: 14)),
-              ),
+              TextButton(onPressed: () => _proceedToNameStep(null), child: const Text('Skip for now', style: TextStyle(color: Colors.grey, fontSize: 14))),
             ],
           ),
         ),
@@ -577,16 +537,13 @@ class _ProfilePhotoStepScreenState extends State<ProfilePhotoStepScreen> {
   }
 }
 
-// --- ৪. ধাপ ২: নাম লেখার স্ক্রিন ---
+// --- ৪. নাম লেখার স্ক্রিন ---
 class ProfileNameStepScreen extends StatefulWidget {
   final String myPhone;
   final String? photoUrl;
+  final String sessionToken;
 
-  const ProfileNameStepScreen({
-    super.key,
-    required this.myPhone,
-    this.photoUrl,
-  });
+  const ProfileNameStepScreen({super.key, required this.myPhone, this.photoUrl, required this.sessionToken});
 
   @override
   State<ProfileNameStepScreen> createState() => _ProfileNameStepScreenState();
@@ -599,9 +556,7 @@ class _ProfileNameStepScreenState extends State<ProfileNameStepScreen> {
   void _finishProfileSetup() async {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('অনুগ্রহ করে আপনার নামটি লিখুন')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('অনুগ্রহ করে আপনার নামটি লিখুন')));
       return;
     }
 
@@ -614,8 +569,7 @@ class _ProfileNameStepScreenState extends State<ProfileNameStepScreen> {
         'name': name,
         'photoUrl': widget.photoUrl ?? '',
         'about': 'Hey there! I am using VibeNet.',
-        'lastSeen': 'Everyone',
-        'readReceipts': true,
+        'sessionToken': widget.sessionToken,
         'createdAt': FieldValue.serverTimestamp(),
       };
 
@@ -628,7 +582,10 @@ class _ProfileNameStepScreenState extends State<ProfileNameStepScreen> {
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(
-            builder: (context) => MainDashboardScreen(myPhone: widget.myPhone),
+            builder: (context) => MainDashboardScreen(
+              myPhone: widget.myPhone,
+              currentSessionToken: widget.sessionToken,
+            ),
           ),
           (route) => false,
         );
@@ -638,7 +595,7 @@ class _ProfileNameStepScreenState extends State<ProfileNameStepScreen> {
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(
-            builder: (context) => MainDashboardScreen(myPhone: widget.myPhone),
+            builder: (context) => MainDashboardScreen(myPhone: widget.myPhone, currentSessionToken: widget.sessionToken),
           ),
           (route) => false,
         );
@@ -652,13 +609,7 @@ class _ProfileNameStepScreenState extends State<ProfileNameStepScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text('Enter your name', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-        centerTitle: true,
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF1E88E5),
-        elevation: 0,
-      ),
+      appBar: AppBar(title: const Text('Enter your name', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)), centerTitle: true, backgroundColor: Colors.white, foregroundColor: const Color(0xFF1E88E5), elevation: 0),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 24.0),
@@ -667,56 +618,22 @@ class _ProfileNameStepScreenState extends State<ProfileNameStepScreen> {
               CircleAvatar(
                 radius: 40,
                 backgroundColor: Colors.grey.shade200,
-                backgroundImage: widget.photoUrl != null && widget.photoUrl!.isNotEmpty
-                    ? NetworkImage(widget.photoUrl!)
-                    : null,
-                child: (widget.photoUrl == null || widget.photoUrl!.isEmpty)
-                    ? const Icon(Icons.person, size: 45, color: Colors.grey)
-                    : null,
+                backgroundImage: widget.photoUrl != null && widget.photoUrl!.isNotEmpty ? NetworkImage(widget.photoUrl!) : null,
+                child: (widget.photoUrl == null || widget.photoUrl!.isEmpty) ? const Icon(Icons.person, size: 45, color: Colors.grey) : null,
               ),
               const SizedBox(height: 20),
-              const Text(
-                'Please provide your name for your profile',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey, fontSize: 14),
-              ),
+              const Text('Please provide your name for your profile', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey, fontSize: 14)),
               const SizedBox(height: 36),
-
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _nameController,
-                      autofocus: true,
-                      decoration: const InputDecoration(
-                        hintText: 'Type your name here',
-                        enabledBorder: UnderlineInputBorder(
-                          borderSide: BorderSide(color: Color(0xFF1E88E5), width: 1.5),
-                        ),
-                        focusedBorder: UnderlineInputBorder(
-                          borderSide: BorderSide(color: Color(0xFF1E88E5), width: 2),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Icon(Icons.emoji_emotions_outlined, color: Colors.grey),
-                ],
+              TextField(
+                controller: _nameController,
+                autofocus: true,
+                decoration: const InputDecoration(hintText: 'Type your name here', border: OutlineInputBorder()),
               ),
-
               const Spacer(),
-
               ElevatedButton(
                 onPressed: _isSaving ? null : _finishProfileSetup,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1E88E5),
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size.fromHeight(48),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                child: _isSaving
-                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : const Text('Finish', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E88E5), foregroundColor: Colors.white, minimumSize: const Size.fromHeight(48), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                child: _isSaving ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Text('Finish', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -726,10 +643,11 @@ class _ProfileNameStepScreenState extends State<ProfileNameStepScreen> {
   }
 }
 
-// --- ৫. ড্যাশবোর্ড ও বটম নেভিগেশন ---
+// --- ৫. ড্যাশবোর্ড স্ক্রিন (সিঙ্গেল ডিভাইস সেশন লিসেনার সহ) ---
 class MainDashboardScreen extends StatefulWidget {
   final String myPhone;
-  const MainDashboardScreen({super.key, required this.myPhone});
+  final String currentSessionToken;
+  const MainDashboardScreen({super.key, required this.myPhone, required this.currentSessionToken});
 
   @override
   State<MainDashboardScreen> createState() => _MainDashboardScreenState();
@@ -737,6 +655,46 @@ class MainDashboardScreen extends StatefulWidget {
 
 class _MainDashboardScreenState extends State<MainDashboardScreen> {
   int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _listenToSessionChanges();
+  }
+
+  // যদি এই নম্বর দিয়ে অন্য ফোনে লগইন হয়, তবে এই ফোন থেকে স্বয়ংক্রিয়ভাবে লগআউট হয়ে যাবে
+  void _listenToSessionChanges() {
+    FirebaseFirestore.instance.collection('users').doc(widget.myPhone).snapshots().listen((snapshot) {
+      if (snapshot.exists && snapshot.data() != null) {
+        final activeToken = snapshot.data()!['activeSessionToken'] as String?;
+        if (activeToken != null && widget.currentSessionToken.isNotEmpty && activeToken != widget.currentSessionToken) {
+          FirebaseAuth.instance.signOut();
+          if (mounted) {
+            showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (ctx) => AlertDialog(
+                title: const Text('Logged Out!'),
+                content: const Text('আপনার এই মোবাইল নম্বর দিয়ে অন্য আরেকটি ডিভাইসে লগইন করা হয়েছে। নিরাপত্তা কারণে এই ডিভাইস থেকে লগআউট করা হলো।'),
+                actions: [
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.pushAndRemoveUntil(
+                        context,
+                        MaterialPageRoute(builder: (c) => const WelcomeTermsScreen()),
+                        (r) => false,
+                      );
+                    },
+                    child: const Text('OK'),
+                  )
+                ],
+              ),
+            );
+          }
+        }
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -765,7 +723,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
   }
 }
 
-// --- ড্যাশবোর্ড হোম বডি (লাইভ আবহাওয়া ও লোকেশন আপডেট সহ) ---
+// --- ড্যাশবোর্ড বডি (শুধুমাত্র সেভ থাকা কনট্যাক্টদের সাথে চ্যাট) ---
 class DashboardHomeBody extends StatefulWidget {
   final String myPhone;
   const DashboardHomeBody({super.key, required this.myPhone});
@@ -778,7 +736,6 @@ class _DashboardHomeBodyState extends State<DashboardHomeBody> {
   String _myPhoto = '';
   String _myName = 'You';
 
-  // লাইভ আবহাওয়া ভ্যারিয়েবল
   String _weatherCity = 'Detecting...';
   String _weatherTemp = '--°C';
   IconData _weatherIcon = Icons.wb_sunny_rounded;
@@ -791,20 +748,17 @@ class _DashboardHomeBodyState extends State<DashboardHomeBody> {
     _fetchLiveWeather();
   }
 
-  // লাইভ আবহাওয়া ও লোকেশন ফেচ করার ফাংশন
   Future<void> _fetchLiveWeather() async {
     setState(() => _isLoadingWeather = true);
     try {
       final client = HttpClient();
       client.connectionTimeout = const Duration(seconds: 8);
-      // wttr.in আইপি অনুযায়ী বর্তমান লোকেশন ও আবহাওয়া দেয়
       final request = await client.getUrl(Uri.parse('https://wttr.in/?format=j1'));
       final response = await request.close();
 
       if (response.statusCode == 200) {
         final body = await response.transform(utf8.decoder).join();
         final data = jsonDecode(body) as Map<String, dynamic>;
-
         final current = data['current_condition']?[0];
         final area = data['nearest_area']?[0];
 
@@ -817,8 +771,6 @@ class _DashboardHomeBodyState extends State<DashboardHomeBody> {
           icon = Icons.grain_rounded;
         } else if (desc.contains('cloud') || desc.contains('overcast')) {
           icon = Icons.cloud_rounded;
-        } else if (desc.contains('thunder')) {
-          icon = Icons.flash_on_rounded;
         }
 
         if (mounted) {
@@ -829,20 +781,12 @@ class _DashboardHomeBodyState extends State<DashboardHomeBody> {
             _isLoadingWeather = false;
           });
         }
-      } else {
-        if (mounted) {
-          setState(() {
-            _weatherCity = 'Kolkata';
-            _weatherTemp = '28°C';
-            _isLoadingWeather = false;
-          });
-        }
       }
     } catch (_) {
       if (mounted) {
         setState(() {
-          _weatherCity = 'Live Area';
-          _weatherTemp = '29°C';
+          _weatherCity = 'Kolkata';
+          _weatherTemp = '28°C';
           _isLoadingWeather = false;
         });
       }
@@ -850,124 +794,117 @@ class _DashboardHomeBodyState extends State<DashboardHomeBody> {
   }
 
   void _loadMyInfo() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid != null) {
-      final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
-      if (doc.exists && doc.data() != null) {
-        setState(() {
-          _myPhoto = doc.data()!['photoUrl'] ?? '';
-          _myName = doc.data()!['name'] ?? 'You';
-        });
-        return;
-      }
-    }
-    final docPhone = await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).get();
-    if (docPhone.exists && docPhone.data() != null) {
+    final doc = await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).get();
+    if (doc.exists && doc.data() != null) {
       setState(() {
-        _myPhoto = docPhone.data()!['photoUrl'] ?? '';
-        _myName = docPhone.data()!['name'] ?? 'You';
+        _myPhoto = doc.data()!['photoUrl'] ?? '';
+        _myName = doc.data()!['name'] ?? 'You';
       });
     }
   }
 
-  void _addStatusDialog() {
-    final statusCtrl = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('New Status'),
-        content: TextField(
-          controller: statusCtrl,
-          maxLines: 3,
-          decoration: const InputDecoration(
-            hintText: 'What\'s on your mind?',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E88E5), foregroundColor: Colors.white),
-            onPressed: () async {
-              final text = statusCtrl.text.trim();
-              if (text.isNotEmpty) {
-                Navigator.pop(ctx);
-                await FirebaseFirestore.instance.collection('statuses').add({
-                  'phone': widget.myPhone,
-                  'name': _myName,
-                  'photoUrl': _myPhoto,
-                  'text': text,
-                  'timestamp': FieldValue.serverTimestamp(),
-                });
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Status uploaded successfully!')),
-                );
-              }
-            },
-            child: const Text('Post'),
-          ),
-        ],
-      ),
-    );
-  }
+  // শুধুমাত্র ফোনের সেভ থাকা কন্টাক্ট থেকে চ্যাট সিলেক্ট করার স্ক্রিন
+  void _openContactsOnlyChat() async {
+    final status = await Permission.contacts.request();
+    if (!status.isGranted) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('কনট্যাক্ট অ্যাক্সেসের অনুমতি দিন')),
+        );
+      }
+      return;
+    }
 
-  void _viewStatus(String name, String text) {
-    showDialog(
-      context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.black,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Container(
-          padding: const EdgeInsets.all(24),
-          height: 280,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(name, style: const TextStyle(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.bold)),
-              const Spacer(),
-              Text(text, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w500)),
-              const Spacer(),
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Close', style: TextStyle(color: Color(0xFF1E88E5))),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+    // ফোনের সেভ থাকা নম্বর রিড করা
+    final phoneContacts = await FlutterContacts.getContacts(withProperties: true, withPhoto: false);
 
-  void _openNewChatDialog() {
-    final phoneCtrl = TextEditingController();
-    showDialog(
+    // ফায়ারবেসের রেজিস্টার্ড ইউজারদের তালিকা
+    final usersSnapshot = await FirebaseFirestore.instance.collection('users').get();
+    final registeredPhones = <String, String>{}; // phone -> name
+
+    for (var doc in usersSnapshot.docs) {
+      final data = doc.data();
+      final p = data['phone'] as String?;
+      final n = data['name'] as String? ?? 'VibeNet User';
+      if (p != null) registeredPhones[p] = n;
+    }
+
+    // ফিল্টার: যাদের নম্বর আপনার ফোনে সেভ আছে এবং যারা VibeNet অ্যাপ ব্যবহার করে
+    final List<Map<String, String>> matchedContacts = [];
+
+    for (var contact in phoneContacts) {
+      for (var phoneObj in contact.phones) {
+        var cleanNumber = phoneObj.number.replaceAll(RegExp(r'\s+|-|\(|\)'), '');
+        if (!cleanNumber.startsWith('+')) {
+          cleanNumber = '+91$cleanNumber'; // ডিফল্ট কান্ট্রি কোড
+        }
+
+        if (registeredPhones.containsKey(cleanNumber) && cleanNumber != widget.myPhone) {
+          matchedContacts.add({
+            'name': contact.displayName.isNotEmpty ? contact.displayName : registeredPhones[cleanNumber]!,
+            'phone': cleanNumber,
+          });
+          break;
+        }
+      }
+    }
+
+    if (!mounted) return;
+
+    // সেভ থাকা বন্ধুদের লিস্ট শো করা
+    showModalBottomSheet(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Start Chat'),
-        content: TextField(
-          controller: phoneCtrl,
-          keyboardType: TextInputType.phone,
-          decoration: const InputDecoration(hintText: 'Receiver phone number', prefixText: '+91 '),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () {
-              final target = phoneCtrl.text.trim();
-              if (target.isNotEmpty) {
-                Navigator.pop(ctx);
-                final finalNumber = target.startsWith('+') ? target : '+91$target';
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (c) => ConversationScreen(myPhone: widget.myPhone, receiverPhone: finalNumber),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Select Contact (সেভ থাকা নম্বর)',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E88E5)),
+            ),
+            const SizedBox(height: 10),
+            if (matchedContacts.isEmpty)
+              const Expanded(
+                child: Center(
+                  child: Text(
+                    'আপনার ফোনে সেভ থাকা কোনো বন্ধু এখনো VibeNet ইনস্টল করেনি।',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey),
                   ),
-                );
-              }
-            },
-            child: const Text('Start'),
-          )
-        ],
+                ),
+              )
+            else
+              Expanded(
+                child: ListView.separated(
+                  itemCount: matchedContacts.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (context, i) {
+                    final c = matchedContacts[i];
+                    return ListTile(
+                      leading: const CircleAvatar(backgroundColor: Color(0xFF1E88E5), child: Icon(Icons.person, color: Colors.white)),
+                      title: Text(c['name']!, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      subtitle: Text(c['phone']!),
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ConversationScreen(
+                              myPhone: widget.myPhone,
+                              receiverPhone: c['phone']!,
+                              receiverName: c['name']!,
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -979,20 +916,14 @@ class _DashboardHomeBodyState extends State<DashboardHomeBody> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Top Header & Live Weather Widget
+            // Top Bar & Live Weather
             Container(
               margin: const EdgeInsets.all(16),
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF1976D2), Color(0xFF42A5F5)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                gradient: const LinearGradient(colors: [Color(0xFF1976D2), Color(0xFF42A5F5)], begin: Alignment.topLeft, end: Alignment.bottomRight),
                 borderRadius: BorderRadius.circular(22),
-                boxShadow: [
-                  BoxShadow(color: const Color(0xFF1976D2).withOpacity(0.35), blurRadius: 10, offset: const Offset(0, 4)),
-                ],
+                boxShadow: [BoxShadow(color: const Color(0xFF1976D2).withOpacity(0.35), blurRadius: 10, offset: const Offset(0, 4))],
               ),
               child: Column(
                 children: [
@@ -1005,155 +936,45 @@ class _DashboardHomeBodyState extends State<DashboardHomeBody> {
                         child: _myPhoto.isEmpty ? const Icon(Icons.person, color: Colors.white, size: 20) : null,
                       ),
                       const SizedBox(width: 12),
-                      const Expanded(
-                        child: Text('VibeNet', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                      ),
-                      IconButton(icon: const Icon(Icons.search, color: Colors.white), onPressed: () {}),
-                      IconButton(icon: const Icon(Icons.qr_code_scanner, color: Colors.white), onPressed: () {}),
+                      const Expanded(child: Text('VibeNet', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold))),
+                      IconButton(icon: const Icon(Icons.refresh, color: Colors.white), onPressed: _fetchLiveWeather),
                     ],
                   ),
                   const SizedBox(height: 16),
-
-                  // আবহাওয়া ও লাইভ লোকেশন কার্ড
-                  InkWell(
-                    onTap: _fetchLiveWeather,
-                    borderRadius: BorderRadius.circular(16),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.18),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(_weatherIcon, color: Colors.amberAccent, size: 36),
-                          const SizedBox(width: 14),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                _weatherTemp,
-                                style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
-                              ),
-                              Text(
-                                _weatherCity,
-                                style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500),
-                              ),
-                            ],
-                          ),
-                          const Spacer(),
-                          _isLoadingWeather
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                                )
-                              : const Row(
-                                  children: [
-                                    Icon(Icons.location_on, color: Colors.white, size: 20),
-                                    SizedBox(width: 4),
-                                    Icon(Icons.refresh, color: Colors.white70, size: 16),
-                                  ],
-                                ),
-                        ],
-                      ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(color: Colors.white.withOpacity(0.18), borderRadius: BorderRadius.circular(16)),
+                    child: Row(
+                      children: [
+                        Icon(_weatherIcon, color: Colors.amberAccent, size: 36),
+                        const SizedBox(width: 14),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(_weatherTemp, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                            Text(_weatherCity, style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500)),
+                          ],
+                        ),
+                        const Spacer(),
+                        const Icon(Icons.location_on, color: Colors.white, size: 20),
+                      ],
                     ),
                   ),
                 ],
               ),
             ),
 
-            // Stories Row
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: SizedBox(
-                height: 95,
-                child: StreamBuilder<QuerySnapshot>(
-                  stream: FirebaseFirestore.instance.collection('statuses').orderBy('timestamp', descending: true).snapshots(),
-                  builder: (context, snapshot) {
-                    final statusDocs = snapshot.data?.docs ?? [];
-
-                    return ListView(
-                      scrollDirection: Axis.horizontal,
-                      children: [
-                        InkWell(
-                          onTap: _addStatusDialog,
-                          child: Container(
-                            margin: const EdgeInsets.only(right: 14),
-                            child: Column(
-                              children: [
-                                Stack(
-                                  children: [
-                                    CircleAvatar(
-                                      radius: 28,
-                                      backgroundColor: Colors.grey.shade300,
-                                      backgroundImage: _myPhoto.isNotEmpty ? NetworkImage(_myPhoto) : null,
-                                      child: _myPhoto.isEmpty ? const Icon(Icons.person, color: Colors.grey) : null,
-                                    ),
-                                    Positioned(
-                                      bottom: 0,
-                                      right: 0,
-                                      child: Container(
-                                        padding: const EdgeInsets.all(2),
-                                        decoration: const BoxDecoration(color: Color(0xFF1E88E5), shape: BoxShape.circle),
-                                        child: const Icon(Icons.add, color: Colors.white, size: 16),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 4),
-                                const Text('My Status', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
-                              ],
-                            ),
-                          ),
-                        ),
-                        ...statusDocs.map((doc) {
-                          final data = doc.data() as Map<String, dynamic>;
-                          final name = data['name'] ?? 'User';
-                          final photo = data['photoUrl'] ?? '';
-                          final text = data['text'] ?? '';
-                          return InkWell(
-                            onTap: () => _viewStatus(name, text),
-                            child: Container(
-                              margin: const EdgeInsets.only(right: 14),
-                              child: Column(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(2.5),
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      border: Border.all(color: const Color(0xFF1E88E5), width: 2),
-                                    ),
-                                    child: CircleAvatar(
-                                      radius: 25,
-                                      backgroundImage: photo.isNotEmpty ? NetworkImage(photo) : null,
-                                      child: photo.isEmpty ? const Icon(Icons.person) : null,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
-                                ],
-                              ),
-                            ),
-                          );
-                        }),
-                      ],
-                    );
-                  },
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 8),
-
-            // Chats Header
+            // CHATS Header (যার সাথে চ্যাট হয়েছে কেবল সেগুলো দেখাবে)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 6.0),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('CHATS', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black54, letterSpacing: 1)),
-                  InkWell(onTap: _openNewChatDialog, child: const Icon(Icons.add_circle, color: Color(0xFF1E88E5), size: 24)),
+                  const Text('CHATS (SAVED CONTACTS)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black54, letterSpacing: 1)),
+                  InkWell(
+                    onTap: _openContactsOnlyChat,
+                    child: const Icon(Icons.person_add_alt_1, color: Color(0xFF1E88E5), size: 24),
+                  ),
                 ],
               ),
             ),
@@ -1184,128 +1005,31 @@ class _DashboardHomeBodyState extends State<DashboardHomeBody> {
                 if (list.isEmpty) {
                   return const Center(
                     child: Padding(
-                      padding: EdgeInsets.all(20.0),
-                      child: Text('কোনো সক্রিয় চ্যাট নেই। + বাটনে চাপ দিয়ে চ্যাট শুরু করুন।', style: TextStyle(color: Colors.grey)),
+                      padding: EdgeInsets.all(32.0),
+                      child: Text('কোনো চ্যাট নেই। সেভ থাকা বন্ধুদের সাথে চ্যাট করতে ডানদিকের আইকনে ট্যাপ করুন।', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
                     ),
                   );
                 }
 
                 return Column(
                   children: list.map((phone) {
-                    return _buildChatTile(phone, lastMsgs[phone] ?? 'Tap to chat', 'Just now', 0, null, phone);
+                    return ListTile(
+                      leading: const CircleAvatar(backgroundColor: Color(0xFF1E88E5), child: Icon(Icons.person, color: Colors.white)),
+                      title: Text(phone, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      subtitle: Text(lastMsgs[phone] ?? 'Tap to chat', maxLines: 1),
+                      trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (c) => ConversationScreen(myPhone: widget.myPhone, receiverPhone: phone, receiverName: phone),
+                          ),
+                        );
+                      },
+                    );
                   }).toList(),
                 );
               },
-            ),
-
-            const SizedBox(height: 16),
-
-            // News Feed & Reels Section
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('NEWS FEED', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black54, letterSpacing: 1)),
-                  Text('REELS', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.blue.shade700, letterSpacing: 1)),
-                ],
-              ),
-            ),
-
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    flex: 5,
-                    child: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Row(
-                            children: [
-                              CircleAvatar(
-                                radius: 12,
-                                backgroundImage: NetworkImage('https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100'),
-                              ),
-                              SizedBox(width: 8),
-                              Text('Anita Roy', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(10),
-                            child: Stack(
-                              children: [
-                                Image.network('https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=400', height: 130, width: double.infinity, fit: BoxFit.cover),
-                                Positioned(
-                                  bottom: 6,
-                                  left: 6,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(4)),
-                                    child: const Text('Traveling! 🌲', style: TextStyle(color: Colors.white, fontSize: 10)),
-                                  ),
-                                )
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          const Row(
-                            children: [
-                              Icon(Icons.favorite_border, size: 16, color: Colors.grey),
-                              SizedBox(width: 4),
-                              Text('150', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                              SizedBox(width: 12),
-                              Icon(Icons.chat_bubble_outline, size: 16, color: Colors.grey),
-                              SizedBox(width: 4),
-                              Text('12', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    flex: 4,
-                    child: Container(
-                      height: 198,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        image: const DecorationImage(image: NetworkImage('https://images.unsplash.com/photo-1518611012118-696072aa579a?w=400'), fit: BoxFit.cover),
-                        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))],
-                      ),
-                      child: Stack(
-                        children: [
-                          Positioned(
-                            bottom: 8,
-                            left: 8,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(4)),
-                              child: const Row(
-                                children: [
-                                  Icon(Icons.play_arrow, color: Colors.white, size: 14),
-                                  SizedBox(width: 2),
-                                  Text('2.1k', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
             ),
             const SizedBox(height: 30),
           ],
@@ -1313,53 +1037,9 @@ class _DashboardHomeBodyState extends State<DashboardHomeBody> {
       ),
     );
   }
-
-  Widget _buildChatTile(String title, String subtitle, String time, int unread, String? avatarUrl, String phone) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 2, offset: Offset(0, 1))],
-      ),
-      child: ListTile(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (c) => ConversationScreen(myPhone: widget.myPhone, receiverPhone: phone),
-            ),
-          );
-        },
-        leading: CircleAvatar(
-          backgroundColor: Colors.grey.shade200,
-          backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
-          child: avatarUrl == null || avatarUrl.isEmpty ? const Icon(Icons.person, color: Color(0xFF1E88E5)) : null,
-        ),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-        subtitle: Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, color: Colors.black54)),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(time, style: const TextStyle(fontSize: 11, color: Colors.grey)),
-            const SizedBox(height: 4),
-            if (unread > 0)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                decoration: BoxDecoration(color: const Color(0xFF1E88E5), borderRadius: BorderRadius.circular(10)),
-                child: Text('$unread', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-              )
-            else
-              const SizedBox(height: 14),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
-// --- ৬. পূর্ণাঙ্গ Profile & Settings Screen ---
+// --- ৬. Settings & Profile Screen ---
 class WhatsAppProfileScreen extends StatefulWidget {
   final String myPhone;
   const WhatsAppProfileScreen({super.key, required this.myPhone});
@@ -1369,8 +1049,6 @@ class WhatsAppProfileScreen extends StatefulWidget {
 }
 
 class _WhatsAppProfileScreenState extends State<WhatsAppProfileScreen> {
-  String _lastSeenOption = 'Everyone';
-  bool _readReceipts = true;
   String _userName = 'VibeNet User';
   String _about = 'Available';
   String _photoUrl = '';
@@ -1378,252 +1056,45 @@ class _WhatsAppProfileScreenState extends State<WhatsAppProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _loadUserData();
+    _loadData();
   }
 
-  void _loadUserData() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid != null) {
-      final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
-      if (doc.exists && doc.data() != null) {
-        final data = doc.data()!;
-        setState(() {
-          _userName = data['name'] ?? _userName;
-          _about = data['about'] ?? _about;
-          _photoUrl = data['photoUrl'] ?? '';
-        });
-        return;
-      }
-    }
-    final docPhone = await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).get();
-    if (docPhone.exists && docPhone.data() != null) {
-      final data = docPhone.data()!;
+  void _loadData() async {
+    final doc = await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).get();
+    if (doc.exists && doc.data() != null) {
       setState(() {
-        _userName = data['name'] ?? _userName;
-        _about = data['about'] ?? _about;
-        _photoUrl = data['photoUrl'] ?? '';
+        _userName = doc.data()!['name'] ?? _userName;
+        _about = doc.data()!['about'] ?? _about;
+        _photoUrl = doc.data()!['photoUrl'] ?? '';
       });
     }
-  }
-
-  void _openPrivacySettings() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setModalState) => Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Privacy Settings', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1E88E5))),
-              const SizedBox(height: 16),
-              const Text('Who can see my personal info', style: TextStyle(fontSize: 13, color: Colors.grey, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Last seen and online'),
-                subtitle: Text(_lastSeenOption),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () {
-                  _showChoiceDialog('Last seen and online', ['Everyone', 'My contacts', 'Nobody'], _lastSeenOption, (val) {
-                    setState(() => _lastSeenOption = val);
-                    setModalState(() {});
-                  });
-                },
-              ),
-              const Divider(height: 1),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Profile photo'),
-                subtitle: const Text('Everyone'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () {},
-              ),
-              const Divider(height: 1),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('About'),
-                subtitle: const Text('Everyone'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () {},
-              ),
-              const Divider(height: 1),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Read receipts (Blue ticks)'),
-                subtitle: const Text('If turned off, you won\'t send or receive Read receipts.'),
-                value: _readReceipts,
-                activeColor: const Color(0xFF1E88E5),
-                onChanged: (val) {
-                  setState(() => _readReceipts = val);
-                  setModalState(() {});
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showChoiceDialog(String title, List<String> options, String currentVal, Function(String) onSelect) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(title),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: options.map((opt) {
-            return RadioListTile<String>(
-              title: Text(opt),
-              value: opt,
-              groupValue: currentVal,
-              activeColor: const Color(0xFF1E88E5),
-              onChanged: (v) {
-                if (v != null) {
-                  onSelect(v);
-                  Navigator.pop(ctx);
-                }
-              },
-            );
-          }).toList(),
-        ),
-      ),
-    );
-  }
-
-  void _editNameDialog() {
-    final ctrl = TextEditingController(text: _userName);
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Enter your name'),
-        content: TextField(controller: ctrl, decoration: const InputDecoration(hintText: 'Your Name')),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () async {
-              if (ctrl.text.trim().isNotEmpty) {
-                setState(() => _userName = ctrl.text.trim());
-                final uid = FirebaseAuth.instance.currentUser?.uid;
-                if (uid != null) {
-                  await FirebaseFirestore.instance.collection('users').doc(uid).update({'name': _userName});
-                }
-                await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({'name': _userName});
-                if (mounted) Navigator.pop(ctx);
-              }
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text('Settings', style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        elevation: 0,
-        actions: [
-          IconButton(icon: const Icon(Icons.search), onPressed: () {}),
-        ],
-      ),
+      appBar: AppBar(title: const Text('Settings', style: TextStyle(fontWeight: FontWeight.bold)), backgroundColor: Colors.white),
       body: ListView(
         children: [
-          InkWell(
-            onTap: _editNameDialog,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              child: Row(
-                children: [
-                  Stack(
-                    children: [
-                      CircleAvatar(
-                        radius: 34,
-                        backgroundColor: Colors.grey.shade200,
-                        backgroundImage: _photoUrl.isNotEmpty ? NetworkImage(_photoUrl) : null,
-                        child: _photoUrl.isEmpty ? const Icon(Icons.person, size: 36, color: Colors.grey) : null,
-                      ),
-                      const Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: CircleAvatar(
-                          radius: 11,
-                          backgroundColor: Color(0xFF1E88E5),
-                          child: Icon(Icons.edit, size: 12, color: Colors.white),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(_userName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 4),
-                        Text(_about, style: const TextStyle(fontSize: 14, color: Colors.grey)),
-                        const SizedBox(height: 2),
-                        Text(widget.myPhone, style: const TextStyle(fontSize: 12, color: Colors.black54)),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.qr_code, color: Color(0xFF1E88E5)),
-                    onPressed: () {},
-                  ),
-                ],
-              ),
-            ),
+          ListTile(
+            leading: CircleAvatar(radius: 30, backgroundImage: _photoUrl.isNotEmpty ? NetworkImage(_photoUrl) : null, child: _photoUrl.isEmpty ? const Icon(Icons.person) : null),
+            title: Text(_userName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            subtitle: Text(_about),
           ),
-          const Divider(thickness: 1, height: 1),
-          _buildSettingsTile(icon: Icons.key_outlined, title: 'Account', subtitle: 'Security notifications, change number', onTap: () {}),
-          _buildSettingsTile(icon: Icons.lock_outline, title: 'Privacy', subtitle: 'Last seen, profile photo, read receipts', onTap: _openPrivacySettings),
-          _buildSettingsTile(icon: Icons.chat_outlined, title: 'Chats', subtitle: 'Theme, wallpapers, chat history', onTap: () {}),
-          _buildSettingsTile(icon: Icons.notifications_none_outlined, title: 'Notifications', subtitle: 'Message, group & call tones', onTap: () {}),
-          _buildSettingsTile(icon: Icons.data_usage_outlined, title: 'Storage and data', subtitle: 'Network usage, auto-download', onTap: () {}),
-          _buildSettingsTile(icon: Icons.help_outline, title: 'Help', subtitle: 'Help center, contact us, privacy policy', onTap: () {}),
-          _buildSettingsTile(icon: Icons.group_add_outlined, title: 'Invite a friend', subtitle: 'Share VibeNet with friends', onTap: () {}),
-          const SizedBox(height: 20),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20.0),
-            child: OutlinedButton.icon(
-              onPressed: () async {
-                await FirebaseAuth.instance.signOut();
-                if (context.mounted) {
-                  Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => const WelcomeTermsScreen()));
-                }
-              },
-              icon: const Icon(Icons.logout, color: Colors.red),
-              label: const Text('Log out', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Colors.red),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-            ),
-          ),
-          const SizedBox(height: 30),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.logout, color: Colors.red),
+            title: const Text('Log out', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+            onTap: () async {
+              await FirebaseAuth.instance.signOut();
+              if (context.mounted) {
+                Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => const WelcomeTermsScreen()));
+              }
+            },
+          )
         ],
       ),
-    );
-  }
-
-  Widget _buildSettingsTile({required IconData icon, required String title, required String subtitle, required VoidCallback onTap}) {
-    return ListTile(
-      leading: Icon(icon, color: Colors.grey.shade700),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
-      subtitle: Text(subtitle, style: const TextStyle(fontSize: 13, color: Colors.grey)),
-      onTap: onTap,
     );
   }
 }
@@ -1632,8 +1103,9 @@ class _WhatsAppProfileScreenState extends State<WhatsAppProfileScreen> {
 class ConversationScreen extends StatefulWidget {
   final String myPhone;
   final String receiverPhone;
+  final String receiverName;
 
-  const ConversationScreen({super.key, required this.myPhone, required this.receiverPhone});
+  const ConversationScreen({super.key, required this.myPhone, required this.receiverPhone, required this.receiverName});
 
   @override
   State<ConversationScreen> createState() => _ConversationScreenState();
@@ -1641,13 +1113,12 @@ class ConversationScreen extends StatefulWidget {
 
 class _ConversationScreenState extends State<ConversationScreen> {
   final TextEditingController _msgController = TextEditingController();
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   void _sendMessage() async {
     final text = _msgController.text.trim();
     if (text.isEmpty) return;
     _msgController.clear();
-    await _firestore.collection('chats').add({
+    await FirebaseFirestore.instance.collection('chats').add({
       'sender': widget.myPhone,
       'receiver': widget.receiverPhone,
       'text': text,
@@ -1655,110 +1126,33 @@ class _ConversationScreenState extends State<ConversationScreen> {
     });
   }
 
-  void _startCall(bool isVideo) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (ctx) => Scaffold(
-          backgroundColor: const Color(0xFF1C2833),
-          body: SafeArea(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Spacer(),
-                CircleAvatar(
-                  radius: 60,
-                  backgroundColor: const Color(0xFF1E88E5),
-                  child: Icon(isVideo ? Icons.videocam : Icons.person, size: 70, color: Colors.white),
-                ),
-                const SizedBox(height: 24),
-                Text(widget.receiverPhone, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                Text(isVideo ? 'VibeNet Video Calling...' : 'VibeNet Audio Calling...', style: const TextStyle(color: Colors.white70, fontSize: 16)),
-                const Spacer(),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    FloatingActionButton(
-                      backgroundColor: Colors.red,
-                      onPressed: () => Navigator.pop(ctx),
-                      child: const Icon(Icons.call_end, color: Colors.white),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 48),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showAttachmentOptions() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.all(20),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Wrap(
-          spacing: 24,
-          runSpacing: 20,
-          alignment: WrapAlignment.center,
-          children: [
-            _buildActionItem(Icons.insert_drive_file, 'Document', const Color(0xFF7F66FF)),
-            _buildActionItem(Icons.camera_alt, 'Camera', const Color(0xFFD33682)),
-            _buildActionItem(Icons.photo, 'Gallery', const Color(0xFFAC44CF)),
-            _buildActionItem(Icons.headset, 'Audio', const Color(0xFFE95950)),
-            _buildActionItem(Icons.location_on, 'Location', const Color(0xFF1B9E5A)),
-            _buildActionItem(Icons.person, 'Contact', const Color(0xFF009EE0)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActionItem(IconData icon, String label, Color color) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        CircleAvatar(radius: 28, backgroundColor: color, child: Icon(icon, color: Colors.white, size: 28)),
-        const SizedBox(height: 6),
-        Text(label, style: const TextStyle(fontSize: 12, color: Colors.black87)),
-      ],
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFECE5DD),
       appBar: AppBar(
-        title: Text(widget.receiverPhone, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(widget.receiverName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            Text(widget.receiverPhone, style: const TextStyle(fontSize: 12)),
+          ],
+        ),
         backgroundColor: const Color(0xFF1E88E5),
         foregroundColor: Colors.white,
-        actions: [
-          IconButton(icon: const Icon(Icons.videocam), onPressed: () => _startCall(true)),
-          IconButton(icon: const Icon(Icons.call), onPressed: () => _startCall(false)),
-        ],
       ),
       body: Column(
         children: [
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
-              stream: _firestore.collection('chats').orderBy('timestamp', descending: true).snapshots(),
+              stream: FirebaseFirestore.instance.collection('chats').orderBy('timestamp', descending: true).snapshots(),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
                 final docs = snapshot.data!.docs.where((doc) {
                   final data = doc.data() as Map<String, dynamic>;
                   final s = data['sender'];
                   final r = data['receiver'];
-                  return (s == widget.myPhone && r == widget.receiverPhone) ||
-                         (s == widget.receiverPhone && r == widget.myPhone);
+                  return (s == widget.myPhone && r == widget.receiverPhone) || (s == widget.receiverPhone && r == widget.myPhone);
                 }).toList();
 
                 return ListView.builder(
@@ -1774,23 +1168,8 @@ class _ConversationScreenState extends State<ConversationScreen> {
                       child: Container(
                         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
-                        decoration: BoxDecoration(
-                          color: isMe ? const Color(0xFFDCF8C6) : Colors.white,
-                          borderRadius: BorderRadius.circular(10),
-                          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 1)],
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Flexible(child: Text(data['text'] ?? '', style: const TextStyle(fontSize: 15))),
-                            if (isMe) ...[
-                              const SizedBox(width: 6),
-                              const Icon(Icons.done_all, size: 15, color: Color(0xFF34B7F1)),
-                            ],
-                          ],
-                        ),
+                        decoration: BoxDecoration(color: isMe ? const Color(0xFFDCF8C6) : Colors.white, borderRadius: BorderRadius.circular(10)),
+                        child: Text(data['text'] ?? '', style: const TextStyle(fontSize: 15)),
                       ),
                     );
                   },
@@ -1804,38 +1183,17 @@ class _ConversationScreenState extends State<ConversationScreen> {
               children: [
                 Expanded(
                   child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(25),
-                      boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 1)],
-                    ),
-                    child: Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.add, color: Color(0xFF1E88E5)),
-                          onPressed: _showAttachmentOptions,
-                        ),
-                        Expanded(
-                          child: TextField(
-                            controller: _msgController,
-                            decoration: const InputDecoration(
-                              hintText: 'Type a message...',
-                              border: InputBorder.none,
-                              contentPadding: EdgeInsets.symmetric(horizontal: 8),
-                            ),
-                          ),
-                        ),
-                      ],
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(25)),
+                    child: TextField(
+                      controller: _msgController,
+                      decoration: const InputDecoration(hintText: 'Type a message...', border: InputBorder.none, contentPadding: EdgeInsets.symmetric(horizontal: 16)),
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 CircleAvatar(
                   backgroundColor: const Color(0xFF1E88E5),
-                  child: IconButton(
-                    icon: const Icon(Icons.send, color: Colors.white, size: 20),
-                    onPressed: _sendMessage,
-                  ),
+                  child: IconButton(icon: const Icon(Icons.send, color: Colors.white, size: 20), onPressed: _sendMessage),
                 ),
               ],
             ),
