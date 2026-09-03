@@ -9,7 +9,6 @@ import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:local_auth/local_auth.dart';
-import 'package:file_picker/file_picker.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -499,7 +498,7 @@ class _ProfilePhotoStepScreenState extends State<ProfilePhotoStepScreen> {
 class ProfileNameStepScreen extends StatefulWidget {
   final String myPhone;
   final String? photoUrl;
-  final String sessionToken;
+  finalString sessionToken;
   const ProfileNameStepScreen({super.key, required this.myPhone, this.photoUrl, required this.sessionToken});
 
   @override
@@ -1509,7 +1508,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
                               Flexible(
-                                child: data['text'].toString().startsWith('[Gallery Image]') || data['text'].toString().startsWith('[Camera Photo]')
+                                child: data['text'].toString().startsWith('[Gallery Image]') || data['text'].toString().startsWith('[Camera Photo]') || data['text'].toString().startsWith('[Document]')
                                     ? ClipRRect(
                                         borderRadius: BorderRadius.circular(8),
                                         child: Image.file(
@@ -1517,7 +1516,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
                                           height: 150,
                                           width: 200,
                                           fit: BoxFit.cover,
-                                          errorBuilder: (context, error, stackTrace) => const Text('Image not found', style: TextStyle(color: Colors.red)),
+                                          errorBuilder: (context, error, stackTrace) => Text(data['text'], style: TextStyle(fontSize: 14, color: isMe ? Colors.white : Colors.black87)),
                                         ),
                                       )
                                     : (data['text'].toString().startsWith('[')
@@ -1529,9 +1528,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
                                                     ? Icons.location_on
                                                     : (data['text'].toString().contains('Contact')
                                                         ? Icons.person
-                                                        : (data['text'].toString().contains('Document')
-                                                            ? Icons.insert_drive_file
-                                                            : Icons.attachment)),
+                                                        : Icons.attachment),
                                                 color: isMe ? Colors.white : Colors.black87,
                                                 size: 20,
                                               ),
@@ -1691,16 +1688,10 @@ class _ConversationScreenState extends State<ConversationScreen> {
                                         }),
                                         _buildAttachmentItem(Icons.insert_drive_file, Colors.purpleAccent, 'Document', () async {
                                           Navigator.pop(ctx);
-                                          try {
-                                            FilePickerResult? result = await FilePicker.platform.pickFiles();
-                                            if (result != null && result.files.single.path != null) {
-                                              String fileName = result.files.single.name;
-                                              _sendMediaMessage('Document', fileName);
-                                            }
-                                          } catch (e) {
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              SnackBar(content: Text('File picker error: $e')),
-                                            );
+                                          final picker = ImagePicker();
+                                          final docFile = await picker.pickImage(source: ImageSource.gallery);
+                                          if (docFile != null) {
+                                            _sendMediaMessage('Document', docFile.path);
                                           }
                                         }),
                                       ],
