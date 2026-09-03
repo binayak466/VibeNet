@@ -1124,7 +1124,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-            appBar: AppBar(
+                  appBar: AppBar(
         title: Row(
           children: [
             const CircleAvatar(
@@ -1133,12 +1133,26 @@ class _ConversationScreenState extends State<ConversationScreen> {
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(widget.receiverName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  Text(maskPhoneNumber(widget.receiverPhone), style: const TextStyle(fontSize: 11)),
-                ],
+              child: StreamBuilder<DocumentSnapshot>(
+                stream: FirebaseFirestore.instance.collection('users').doc(widget.receiverPhone).snapshots(),
+                builder: (context, snapshot) {
+                  String statusText = maskPhoneNumber(widget.receiverPhone);
+                  if (snapshot.hasData && snapshot.data!.exists) {
+                    final data = snapshot.data!.data() as Map<String, dynamic>?;
+                    final lastSeenPrivacy = data?['lastSeenPrivacy'] ?? 'everyone';
+                    // যদি ইউজার তার লাস্ট সিন সবার জন্য ওপেন রাখে তবে অনলাইন দেখাবে
+                    if (lastSeenPrivacy == 'everyone') {
+                      statusText = 'Online';
+                    }
+                  }
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(widget.receiverName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      Text(statusText, style: const TextStyle(fontSize: 11, color: Colors.white70)),
+                    ],
+                  );
+                },
               ),
             ),
           ],
@@ -1160,7 +1174,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
           ),
         ],
       ),
-      
+
       body: Column(
         children: [
           Expanded(
