@@ -177,20 +177,34 @@ class _FirebaseInitWrapperState extends State<FirebaseInitWrapper> {
     );
   }
 
-  Future<Widget> _checkLoginStatus() async {
+    Future<Widget> _checkLoginStatus() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
+        // ইউজারের UID দিয়ে ফায়ারস্টোর থেকে সরাসরি ডেটা চেক করা
         final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
         if (doc.exists && doc.data() != null && doc.data()!['phone'] != null) {
           final phone = doc.data()!['phone'] as String;
           final token = doc.data()!['sessionToken'] as String? ?? '';
           return MainDashboardScreen(myPhone: phone, currentSessionToken: token);
         }
+
+        // যদি UID দিয়ে না পাওয়া যায়, তবে কালেকশনের যেকোনো একটিভ ইউজার চেক করা
+        final query = await FirebaseFirestore.instance.collection('users').limit(1).get();
+        if (query.docs.isNotEmpty) {
+          final data = query.docs.first.data();
+          final phone = data['phone'] as String?;
+          final token = data['sessionToken'] as String?;
+          if (phone != null && token != null) {
+            return MainDashboardScreen(myPhone: phone, currentSessionToken: token);
+          }
+        }
       }
     } catch (_) {}
     return const WelcomeTermsScreen();
-  }
+    }
+  
+    
 
   @override
   Widget build(BuildContext context) {
