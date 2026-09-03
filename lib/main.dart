@@ -13,7 +13,6 @@ void main() {
   runApp(const VibeNetApp());
 }
 
-// ফোন নম্বর মাস্ক বা হাইড করার ফাংশন
 String maskPhoneNumber(String phone) {
   if (phone.length > 6) {
     return '${phone.substring(0, 3)}••••••${phone.substring(phone.length - 4)}';
@@ -496,7 +495,6 @@ class _ProfileNameStepScreenState extends State<ProfileNameStepScreen> {
   }
 }
 
-// --- ড্যাশবোর্ড স্ক্রিন (BottomNavigationBar সহ) ---
 class MainDashboardScreen extends StatefulWidget {
   final String myPhone;
   final String currentSessionToken;
@@ -545,8 +543,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
         currentIndex: _currentIndex,
         onTap: (i) {
           if (i == 2) {
-            // নিচের মাছের Create (+) বাটনে ক্লিক করলেই ফোনের সেভ থাকা কন্ট্যাক্ট থেকে চ্যাট খোলার অপশন আসবে
-            _openContactsOnlyChat(context, widget.myPhone);
+            openContactsChat(context, widget.myPhone);
           } else {
             setState(() => _currentIndex = i);
           }
@@ -566,37 +563,49 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
   }
 }
 
-// ফোনের কন্ট্যাক্ট থেকে অ্যাপ ইনস্টল থাকা ইউজারদের সাথে চ্যাট খোলার ফাংশন
-void _openContactsOnlyChat(BuildContext context, String myPhone) async {
+// ফ্লেক্সিবল কন্ট্যাক্ট ম্যাচিং ফাংশন (যাতে নম্বর ফরম্যাট আলাদা হলেও কন্ট্যাক্ট খুঁজে পাওয়া যায়)
+void openContactsChat(BuildContext context, String myPhone) async {
   final status = await Permission.contacts.request();
   if (!status.isGranted) {
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('কনট্যাক্ট অ্যাক্সেসের অনুমতি দিন')));
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('কনট্যাক্ট অ্যাক্সেসের অনুমতি দিন')));
+    }
     return;
   }
 
   final phoneContacts = await FlutterContacts.getContacts(withProperties: true, withPhoto: false);
   final usersSnapshot = await FirebaseFirestore.instance.collection('users').get();
-  final registeredPhones = <String, String>{};
-
+  
+  // ফায়ারবেসের রেজিস্টার্ড নম্বরগুলোর একটি ম্যাপ তৈরি করা হচ্ছে (শেষ ১০টি ডিজিট দিয়ে নরম্যালরাইজ করে)
+  final Map<String, String> registeredPhones = {};
   for (var doc in usersSnapshot.docs) {
     final data = doc.data();
     final p = data['phone'] as String?;
     final n = data['name'] as String? ?? 'VibeNet User';
-    if (p != null) registeredPhones[p] = n;
+    if (p != null && p.isNotEmpty) {
+      final cleanDbPhone = p.replaceAll(RegExp(r'\D'), '');
+      if (cleanDbPhone.length >= 10) {
+        registeredPhones[cleanDbPhone.substring(cleanDbPhone.length - 10)] = p;
+      }
+    }
   }
 
   final List<Map<String, String>> matchedContacts = [];
   for (var contact in phoneContacts) {
     for (var phoneObj in contact.phones) {
-      var cleanNumber = phoneObj.number.replaceAll(RegExp(r'\s+|-|\(|\)'), '');
-      if (!cleanNumber.startsWith('+')) cleanNumber = '+91$cleanNumber';
-
-      if (registeredPhones.containsKey(cleanNumber) && cleanNumber != myPhone) {
-        matchedContacts.add({
-          'name': contact.displayName.isNotEmpty ? contact.displayName : registeredPhones[cleanNumber]!,
-          'phone': cleanNumber,
-        });
-        break;
+      var rawNum = phoneObj.number.replaceAll(RegExp(r'\D'), '');
+      if (rawNum.length >= 10) {
+        final last10 = rawNum.substring(rawNum.length - 10);
+        if (registeredPhones.containsKey(last10)) {
+          final matchedFullPhone = registeredPhones[last10]!;
+          if (matchedFullPhone != myPhone) {
+            matchedContacts.add({
+              'name': contact.displayName.isNotEmpty ? contact.displayName : 'VibeNet User',
+              'phone': matchedFullPhone,
+            });
+            break;
+          }
+        }
       }
     }
   }
@@ -632,7 +641,7 @@ void _openContactsOnlyChat(BuildContext context, String myPhone) async {
               ),
               const SizedBox(height: 12),
               if (filteredList.isEmpty)
-                const Expanded(child: Center(child: Text('আপনার সেভ থাকা কন্ট্যাক্টগুলোর মধ্যে এই অ্যাপে কেউ নেই বা অনুমতি প্রয়োজন।', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey))))
+                const Expanded(child: Center(child: Text('আপনার সেভ থাকা কন্ট্যাক্টগুলোর মধ্যে এই অ্যাপে কেউ রেজিস্টার্ড নেই।', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey))))
               else
                 Expanded(
                   child: ListView.separated(
@@ -677,7 +686,6 @@ void _openContactsOnlyChat(BuildContext context, String myPhone) async {
   );
 }
 
-// --- ড্যাশবোর্ড বডি (লাইভ আবহাওয়া কার্ড ও স্ট্যাটাস সহ) ---
 class DashboardHomeBody extends StatefulWidget {
   final String myPhone;
   const DashboardHomeBody({super.key, required this.myPhone});
@@ -771,7 +779,7 @@ class _DashboardHomeBodyState extends State<DashboardHomeBody> {
                       ),
                       IconButton(
                         icon: const Icon(Icons.person_add_alt_1, color: Colors.white),
-                        onPressed: () => _openContactsOnlyChat(context, widget.myPhone),
+                        onPressed: () => openContactsChat(context, widget.myPhone),
                       ),
                     ],
                   ),
@@ -799,7 +807,6 @@ class _DashboardHomeBodyState extends State<DashboardHomeBody> {
               ),
             ),
 
-            // স্ট্যাটাস সেকশন
             SizedBox(
               height: 90,
               child: ListView(
@@ -899,7 +906,6 @@ class _DashboardHomeBodyState extends State<DashboardHomeBody> {
   }
 }
 
-// গ্লোবাল সার্চ
 class GlobalUserSearchDelegate extends SearchDelegate<String> {
   final String myPhone;
   GlobalUserSearchDelegate({required this.myPhone});
@@ -956,7 +962,6 @@ class GlobalUserSearchDelegate extends SearchDelegate<String> {
   }
 }
 
-// --- WhatsApp স্টাইল Profile ও Settings স্ক্রিন (Privacy অপশনসহ) ---
 class WhatsAppProfileScreen extends StatefulWidget {
   final String myPhone;
   const WhatsAppProfileScreen({super.key, required this.myPhone});
@@ -1192,10 +1197,6 @@ class _ConversationScreenState extends State<ConversationScreen> {
               builder: (context, snapshot) {
                 if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
                 final docs = snapshot.data!.docs.where((doc) {
-                  call: {
-                    // ignore: dead_code
-                    if (false) {}
-                  }
                   final data = doc.data() as Map<String, dynamic>;
                   final s = data['sender'];
                   final r = data['receiver'];
