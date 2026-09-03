@@ -8,7 +8,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -181,15 +180,12 @@ class _FirebaseInitWrapperState extends State<FirebaseInitWrapper> {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
-        // ১. ইউজারের UID দিয়ে ফায়ারস্টোর থেকে সরাসরি ডেটা চেক করা
         final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
         if (doc.exists && doc.data() != null && doc.data()!['phone'] != null) {
           final phone = doc.data()!['phone'] as String;
           final token = doc.data()!['sessionToken'] as String? ?? '';
           return MainDashboardScreen(myPhone: phone, currentSessionToken: token);
         }
-
-        // ২. যদি UID দিয়ে না পাওয়া যায়, তবে ফোন নম্বর দিয়ে ইউজারের কালেকশন স্ক্যান করা
         final query = await FirebaseFirestore.instance.collection('users').limit(1).get();
         if (query.docs.isNotEmpty) {
           final data = query.docs.first.data();
@@ -202,8 +198,6 @@ class _FirebaseInitWrapperState extends State<FirebaseInitWrapper> {
       }
     } catch (_) {}
     return const WelcomeTermsScreen();
-  }
-
   }
 
   @override
@@ -707,7 +701,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
               ),
             ),
 
-            // Live Weather Card Widget
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               padding: const EdgeInsets.all(16),
@@ -737,7 +730,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
               ),
             ),
 
-            // Status Stories Row
             SizedBox(
               height: 90,
               child: ListView(
@@ -966,8 +958,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 20),
-                
-                // UPI Payment Hub Section
+
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -1008,7 +999,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 const SizedBox(height: 20),
 
-                // Privacy Settings Section
                 const Align(
                   alignment: Alignment.centerLeft,
                   child: Text('Privacy Settings', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E88E5))),
