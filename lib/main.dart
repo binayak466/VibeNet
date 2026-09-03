@@ -685,7 +685,54 @@ class _ContactsScreenState extends State<ContactsScreen> {
     return FloatingActionButton(
       backgroundColor: const Color(0xFF1E88E5),
       child: const Icon(Icons.add, color: Colors.white),
-      onPressed: () => _fetchAndShowContacts(context),
+      onPressed: () {
+        showModalBottomSheet(
+          context: context,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          builder: (ctx) => Container(
+            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Create Options',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 16),
+                ListTile(
+                  leading: const CircleAvatar(
+                    backgroundColor: Color(0xFF1E88E5),
+                    child: Icon(Icons.group_add, color: Colors.white),
+                  ),
+                  title: const Text('New Group', style: TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: const Text('Create a new chat group'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('New Group feature coming soon!')),
+                    );
+                  },
+                ),
+                const Divider(),
+                ListTile(
+                  leading: const CircleAvatar(
+                    backgroundColor: Color(0xFF1E88E5),
+                    child: Icon(Icons.person_add, color: Colors.white),
+                  ),
+                  title: const Text('New Contact', style: TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: const Text('Add a new contact to VibeNet'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _fetchAndShowContacts(context);
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -725,7 +772,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
     });
   }
 
-    void _checkBiometricOnStartup() async {
+  void _checkBiometricOnStartup() async {
     try {
       final doc = await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).get();
       if (doc.exists && doc.data() != null) {
@@ -739,7 +786,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
             ),
           );
           if (!authenticated) {
-            // যদি কেউ ক্যানسل করে, চাইলে আবার চেক করাতে পারেন
             Future.delayed(const Duration(seconds: 1), () => _checkBiometricOnStartup());
           }
         }
@@ -748,7 +794,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
       print("Biometric Error: $e");
     }
   }
-
 
   @override
   void dispose() {
@@ -1450,7 +1495,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
               },
             ),
           ),
-                    Padding(
+          Padding(
             padding: const EdgeInsets.all(8.0),
             child: Row(
               children: [
@@ -1514,11 +1559,6 @@ class _ConversationScreenState extends State<ConversationScreen> {
                       }
                     },
                   ),
-                ),
-              ],
-            ),
-          ),
-          
                 ),
               ],
             ),
