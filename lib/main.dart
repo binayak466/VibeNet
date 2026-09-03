@@ -178,9 +178,9 @@ class _FirebaseInitWrapperState extends State<FirebaseInitWrapper> {
 
   Future<Widget> _checkLoginStatus() async {
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        final querySnapshot = await FirebaseFirestore.instance.collection('users').get();
+      // সরাসরি ফায়ারস্টোর থেকে চেক করা যাতে অ্যাপ রিস্টার্ট করলে লগআউট না হয়
+      final querySnapshot = await FirebaseFirestore.instance.collection('users').get();
+      if (querySnapshot.docs.isNotEmpty) {
         for (var doc in querySnapshot.docs) {
           final data = doc.data();
           if (data['phone'] != null) {
