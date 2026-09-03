@@ -502,4 +502,252 @@ class _ProfileNameStepScreenState extends State<ProfileNameStepScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF121212),
       appBar: AppBar(title: const Text('Enter Name'), backgroundColor: const Color(0xFF121212)),
-     
+      body: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          children: [
+            TextField(controller: _nameCtrl, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Your Name')),
+            const SizedBox(height: 20),
+            ElevatedButton(onPressed: _finish, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E88E5), foregroundColor: Colors.white), child: const Text('Finish')),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class MainDashboardScreen extends StatefulWidget {
+  final String myPhone;
+  final String currentSessionToken;
+  const MainDashboardScreen({super.key, required this.myPhone, required this.currentSessionToken});
+
+  @override
+  State<MainDashboardScreen> createState() => _MainDashboardScreenState();
+}
+
+class _MainDashboardScreenState extends State<MainDashboardScreen> {
+  @override
+  void initState() {
+    super.initState();
+    FirebaseFirestore.instance.collection('users').doc(widget.myPhone).snapshots().listen((doc) {
+      if (doc.exists && doc.data() != null) {
+        final activeToken = doc.data()!['activeSessionToken'] as String?;
+        if (activeToken != null && activeToken != widget.currentSessionToken) {
+          FirebaseAuth.instance.signOut();
+          Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (c) => const WelcomeTermsScreen()), (r) => false);
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Logged out due to login on another device')));
+        }
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF121212),
+      appBar: AppBar(
+        title: const Text('VibeNet Chats'),
+        backgroundColor: const Color(0xFF121212),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.red),
+            onPressed: () async {
+              await FirebaseAuth.instance.signOut();
+              Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => const WelcomeTermsScreen()));
+            },
+          )
+        ],
+      ),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance.collection('users').snapshots(),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+          final users = snapshot.data!.docs.where((d) => d.id != widget.myPhone).toList();
+          return ListView.builder(
+            itemCount: users.length,
+            itemBuilder: (context, index) {
+              final data = users[index].data() as Map<String, dynamic>;
+              final name = data['name'] ?? 'User';
+              final phone = data['phone'] ?? '';
+              final photo = data['photoUrl'] ?? '';
+              return ListTile(
+                leading: CircleAvatar(backgroundImage: photo.isNotEmpty ? NetworkImage(photo) : null, child: photo.isEmpty ? const Icon(Icons.person) : null),
+                title: Text(name),
+                subtitle: Text(maskPhoneNumber(phone)),
+                onTap: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (c) => ConversationScreen(myPhone: widget.myPhone, receiverPhone: phone, receiverName: name)));
+                },
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+class ConversationScreen extends StatefulWidget {
+  final String myPhone;
+  final String receiverPhone;
+  final String receiverName;
+  const ConversationScreen({super.key, required this.myPhone, required this.receiverPhone, required this.receiverName});
+
+  @override
+  State<ConversationScreen> createState() => _ConversationScreenState();
+}
+
+class _ConversationScreenState extends State<ConversationScreen> {
+  final TextEditingController _msgCtrl = TextEditingController();
+
+  void _send() async {
+    final text = _msgCtrl.text.trim();
+    if (text.isEmpty) return;
+    _msgCtrl.clear();
+    await FirebaseFirestore.instance.collection('chats').add({
+      'sender': widget.myPhone,
+      'receiver': widget.receiverPhone,
+      'text': text,
+      'isSeen': false,
+      'timestamp': FieldValue.serverTimestamp(),
+    });
+  }
+
+  void _deleteMessage(String docId, bool isMe) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Delete Message', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            ListTile(
+              leading: const Icon(Icons.delete_outline, color: Colors.orange),
+              title: const Text('Delete for me'),
+              onTap: () async {
+                Navigator.pop(ctx);
+                await FirebaseFirestore.instance.collection('chats').doc(docId).delete();
+              },
+            ),
+            if (isMe) ...[
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.delete_forever, color: Colors.red),
+                title: const Text('Delete for everyone', style: TextStyle(color: Colors.red)),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await FirebaseFirestore.instance.collection('chats').doc(docId).delete();
+                },
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF121212),
+      appBar: AppBar(
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(widget.receiverName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            Text(maskPhoneNumber(widget.receiverPhone), style: const TextStyle(fontSize: 12)),
+          ],
+        ),
+        backgroundColor: const Color(0xFF1E88E5),
+        foregroundColor: Colors.white,
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance.collection('chats').orderBy('timestamp', descending: true).snapshots(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+                final docs = snapshot.data!.docs.where((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  final s = data['sender'];
+                  final r = data['receiver'];
+                  return (s == widget.myPhone && r == widget.receiverPhone) || (s == widget.receiverPhone && r == widget.myPhone);
+                }).toList();
+
+                return ListView.builder(
+                  reverse: true,
+                  itemCount: docs.length,
+                  itemBuilder: (context, index) {
+                    final doc = docs[index];
+                    final data = doc.data() as Map<String, dynamic>;
+                    final isMe = data['sender'] == widget.myPhone;
+                    final isSeen = data['isSeen'] ?? false;
+
+                    if (!isMe && !isSeen) {
+                      FirebaseFirestore.instance.collection('chats').doc(doc.id).update({'isSeen': true});
+                    }
+
+                    return GestureDetector(
+                      onLongPress: () => _deleteMessage(doc.id, isMe),
+                      child: Align(
+                        alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isMe ? const Color(0xFF1E88E5) : Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  data['text'] ?? '',
+                                  style: TextStyle(fontSize: 15, color: isMe ? Colors.white : Colors.black87),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              if (isMe)
+                                Icon(
+                                  isSeen ? Icons.done_all : Icons.done,
+                                  size: 16,
+                                  color: isSeen ? Colors.blue : Colors.grey,
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _msgCtrl,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: const InputDecoration(hintText: 'Type a message...', hintStyle: TextStyle(color: Colors.white54)),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.send, color: Color(0xFF1E88E5)),
+                  onPressed: _send,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
