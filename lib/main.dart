@@ -10,15 +10,8 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
-@pragma('vm:entry-point')
-Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp();
-}
-
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
-  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
   runApp(const VibeNetApp());
 }
 
@@ -156,33 +149,52 @@ class FirebaseInitWrapper extends StatefulWidget {
 }
 
 class _FirebaseInitWrapperState extends State<FirebaseInitWrapper> {
+  late final Future<FirebaseApp> _initialization;
+
+  @override
+  void initState() {
+    super.initState();
+    _initialization = Firebase.initializeApp(
+      options: const FirebaseOptions(
+        apiKey: 'AIzaSyCj7GM2yfp_16tgFpZqaxGU4InlcUgKFA4',
+        appId: '1:328420807383:android:49db8e29dc03664c64d692',
+        messagingSenderId: '328420807383',
+        projectId: 'vibenet-chat',
+        storageBucket: 'vibenet-chat.firebasestorage.app',
+      ),
+    );
+  }
+
   Future<Widget> _checkLoginStatus() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-      if (doc.exists && doc.data() != null && doc.data()!['phone'] != null) {
-        final phone = doc.data()!['phone'] as String;
-        final token = doc.data()!['sessionToken'] as String? ?? '';
-        return MainDashboardScreen(myPhone: phone, currentSessionToken: token);
-      } else {
-        final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-        if (userDoc.exists && userDoc.data()!['phone'] != null) {
-          final phone = userDoc.data()!['phone'] as String;
-          final token = userDoc.data()!['sessionToken'] as String? ?? '';
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        if (doc.exists && doc.data() != null && doc.data()!['phone'] != null) {
+          final phone = doc.data()!['phone'] as String;
+          final token = doc.data()!['sessionToken'] as String? ?? '';
           return MainDashboardScreen(myPhone: phone, currentSessionToken: token);
         }
       }
-    }
+    } catch (_) {}
     return const WelcomeTermsScreen();
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<Widget>(
-      future: _checkLoginStatus(),
-      builder: (context, loginSnapshot) {
-        if (loginSnapshot.connectionState == ConnectionState.done && loginSnapshot.hasData) {
-          return loginSnapshot.data!;
+    return FutureBuilder<FirebaseApp>(
+      future: _initialization,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.done) {
+          return FutureBuilder<Widget>(
+            future: _checkLoginStatus(),
+            builder: (context, loginSnapshot) {
+              if (loginSnapshot.connectionState == ConnectionState.done && loginSnapshot.hasData) {
+                return loginSnapshot.data!;
+              }
+              return const Scaffold(body: Center(child: CircularProgressIndicator(color: Color(0xFF1E88E5))));
+            },
+          );
         }
         return const Scaffold(body: Center(child: CircularProgressIndicator(color: Color(0xFF1E88E5))));
       },
@@ -537,12 +549,14 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
   }
 
   void _setupFCM() async {
-    FirebaseMessaging messaging = FirebaseMessaging.instance;
-    await messaging.requestPermission(alert: true, badge: true, sound: true);
-    String? fcmToken = await messaging.getToken();
-    if (fcmToken != null) {
-      await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({'fcmToken': fcmToken});
-    }
+    try {
+      FirebaseMessaging messaging = FirebaseMessaging.instance;
+      await messaging.requestPermission(alert: true, badge: true, sound: true);
+      String? fcmToken = await messaging.getToken();
+      if (fcmToken != null) {
+        await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({'fcmToken': fcmToken});
+      }
+    } catch (_) {}
   }
 
   @override
