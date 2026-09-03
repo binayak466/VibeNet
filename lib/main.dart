@@ -1124,17 +1124,43 @@ class _ConversationScreenState extends State<ConversationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+            appBar: AppBar(
+        title: Row(
           children: [
-            Text(widget.receiverName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            Text(maskPhoneNumber(widget.receiverPhone), style: const TextStyle(fontSize: 12)),
+            const CircleAvatar(
+              radius: 18,
+              child: Icon(Icons.person, size: 20),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(widget.receiverName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  Text(maskPhoneNumber(widget.receiverPhone), style: const TextStyle(fontSize: 11)),
+                ],
+              ),
+            ),
           ],
         ),
         backgroundColor: const Color(0xFF1E88E5),
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.videocam),
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Starting Video Call...')));
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.call),
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Starting Voice Call...')));
+            },
+          ),
+        ],
       ),
+      
       body: Column(
         children: [
           Expanded(
