@@ -71,8 +71,8 @@ class _FirebaseInitWrapperState extends State<FirebaseInitWrapper> {
 
         if (snapshot.connectionState == ConnectionState.done) {
           final currentUser = FirebaseAuth.instance.currentUser;
-          if (currentUser != null) {
-            return ChatListScreen(myPhone: currentUser.phoneNumber ?? '+91 User');
+          if (currentUser != null && currentUser.phoneNumber != null) {
+            return ChatListScreen(myPhone: currentUser.phoneNumber!);
           }
           return const WelcomeTermsScreen();
         }
@@ -87,7 +87,7 @@ class _FirebaseInitWrapperState extends State<FirebaseInitWrapper> {
   }
 }
 
-// --- WhatsApp স্টাইল Terms & Conditions স্ক্রিন ---
+// --- Terms & Conditions Screen ---
 class WelcomeTermsScreen extends StatelessWidget {
   const WelcomeTermsScreen({super.key});
 
@@ -113,15 +113,15 @@ class WelcomeTermsScreen extends StatelessWidget {
               Column(
                 children: [
                   Container(
-                    width: 220,
-                    height: 220,
+                    width: 200,
+                    height: 200,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: const Color(0xFF075E54).withOpacity(0.08),
                     ),
                     child: const Icon(
                       Icons.chat_bubble_rounded,
-                      size: 110,
+                      size: 100,
                       color: Color(0xFF25D366),
                     ),
                   ),
@@ -172,7 +172,7 @@ class WelcomeTermsScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 20),
                   const Text(
-                    'from\nGoogle / VibeNet Team',
+                    'from\nVibeNet Team',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: Colors.grey, fontSize: 11, letterSpacing: 1.2),
                   ),
@@ -186,7 +186,7 @@ class WelcomeTermsScreen extends StatelessWidget {
   }
 }
 
-// --- WhatsApp স্টাইল কান্ট্রি সিলেক্ট ও ফোন নম্বর স্ক্রিন ---
+// --- Phone Input Screen ---
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -207,9 +207,6 @@ class _LoginScreenState extends State<LoginScreen> {
     {'name': 'Bangladesh', 'code': '+880'},
     {'name': 'United States', 'code': '+1'},
     {'name': 'United Kingdom', 'code': '+44'},
-    {'name': 'United Arab Emirates', 'code': '+971'},
-    {'name': 'Saudi Arabia', 'code': '+966'},
-    {'name': 'Nepal', 'code': '+977'},
   ];
 
   late String _selectedCountry;
@@ -224,7 +221,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _sendOtp() {
     final phone = _phoneController.text.trim();
-    if (phone.length < 7) {
+    if (phone.length < 10) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('সঠিক মোবাইল নম্বর দিন')),
       );
@@ -233,15 +230,15 @@ class _LoginScreenState extends State<LoginScreen> {
 
     setState(() => _isLoading = true);
 
-    Future.delayed(const Duration(milliseconds: 600), () {
+    Future.delayed(const Duration(milliseconds: 500), () {
       if (mounted) {
         setState(() {
-          _fullPhoneNumber = '$_selectedCountryCode $phone';
+          _fullPhoneNumber = '$_selectedCountryCode$phone';
           _isOtpSent = true;
           _isLoading = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('OTP পাঠানো হয়েছে! টেস্ট কোড: 123456')),
+          const SnackBar(content: Text('OTP পাঠানো হয়েছে! কোড দিন: 123456')),
         );
       }
     });
@@ -262,6 +259,11 @@ class _LoginScreenState extends State<LoginScreen> {
       if (FirebaseAuth.instance.currentUser == null) {
         await FirebaseAuth.instance.signInAnonymously();
       }
+
+      await FirebaseFirestore.instance.collection('users').doc(_fullPhoneNumber).set({
+        'phone': _fullPhoneNumber,
+        'createdAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
 
       if (mounted) {
         Navigator.pushReplacement(
@@ -342,7 +344,7 @@ class _LoginScreenState extends State<LoginScreen> {
             Row(
               children: [
                 Container(
-                  width: 70,
+                  width: 60,
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   decoration: const BoxDecoration(
                     border: Border(bottom: BorderSide(color: Color(0xFF075E54), width: 1.5)),
@@ -419,7 +421,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
-// --- কন্টাক্ট / চ্যাট লিস্ট স্ক্রিন ---
+// --- আসল সক্রিয় চ্যাট লিস্ট স্ক্রিন ---
 class ChatListScreen extends StatefulWidget {
   final String myPhone;
   const ChatListScreen({super.key, required this.myPhone});
@@ -429,17 +431,56 @@ class ChatListScreen extends StatefulWidget {
 }
 
 class _ChatListScreenState extends State<ChatListScreen> {
-  final List<Map<String, String>> contacts = [
-    {'name': 'Rahul Sharma', 'phone': '+919876543210', 'status': 'Hey there! Using VibeNet.'},
-    {'name': 'Priya Das', 'phone': '+919123456780', 'status': 'Available'},
-    {'name': 'Amit Roy', 'phone': '+919988776655', 'status': 'Busy at work'},
-  ];
+  void _startNewChat() {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('New Chat'),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.phone,
+          decoration: const InputDecoration(
+            hintText: 'Enter 10-digit number',
+            prefixText: '+91 ',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF075E54), foregroundColor: Colors.white),
+            onPressed: () {
+              final target = controller.text.trim();
+              if (target.length >= 10) {
+                Navigator.pop(ctx);
+                final fullTarget = target.startsWith('+') ? target : '+91$target';
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ConversationScreen(
+                      myPhone: widget.myPhone,
+                      receiverPhone: fullTarget,
+                    ),
+                  ),
+                );
+              }
+            },
+            child: const Text('Chat'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('VibeNet', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('VibeNet', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 21)),
         backgroundColor: const Color(0xFF075E54),
         foregroundColor: Colors.white,
         actions: [
@@ -457,49 +498,95 @@ class _ChatListScreenState extends State<ChatListScreen> {
           )
         ],
       ),
-      body: ListView.separated(
-        itemCount: contacts.length,
-        separatorBuilder: (_, __) => const Divider(height: 1),
-        itemBuilder: (context, index) {
-          final person = contacts[index];
-          return ListTile(
-            leading: CircleAvatar(
-              backgroundColor: const Color(0xFF128C7E),
-              foregroundColor: Colors.white,
-              child: Text(person['name']![0]),
-            ),
-            title: Text(person['name']!, style: const TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Text(person['status']!),
-            trailing: const Icon(Icons.chat_bubble_outline, color: Color(0xFF075E54)),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ConversationScreen(
-                    myPhone: widget.myPhone,
-                    receiverName: person['name']!,
-                    receiverPhone: person['phone']!,
-                  ),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('chats')
+            .orderBy('timestamp', descending: true)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final docs = snapshot.data!.docs;
+          final Set<String> chatPartners = {};
+
+          for (var doc in docs) {
+            final data = doc.data() as Map<String, dynamic>;
+            final sender = data['sender'] as String?;
+            final receiver = data['receiver'] as String?;
+            if (sender == widget.myPhone && receiver != null) {
+              chatPartners.add(receiver);
+            } else if (receiver == widget.myPhone && sender != null) {
+              chatPartners.add(sender);
+            }
+          }
+
+          final partnersList = chatPartners.toList();
+
+          if (partnersList.isEmpty) {
+            return const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.chat_outlined, size: 70, color: Colors.grey),
+                  SizedBox(height: 12),
+                  Text('কোনো চ্যাট নেই', style: TextStyle(fontSize: 16, color: Colors.grey)),
+                  SizedBox(height: 4),
+                  Text('নিচের বাটনে চাপ দিয়ে চ্যাট শুরু করুন', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                ],
+              ),
+            );
+          }
+
+          return ListView.separated(
+            itemCount: partnersList.length,
+            separatorBuilder: (_, __) => const Divider(height: 1),
+            itemBuilder: (context, index) {
+              final partner = partnersList[index];
+              return ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: const Color(0xFF128C7E),
+                  foregroundColor: Colors.white,
+                  child: const Icon(Icons.person),
                 ),
+                title: Text(partner, style: const TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: const Text('Tap to open conversation'),
+                trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ConversationScreen(
+                        myPhone: widget.myPhone,
+                        receiverPhone: partner,
+                      ),
+                    ),
+                  );
+                },
               );
             },
           );
         },
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _startNewChat,
+        backgroundColor: const Color(0xFF25D366),
+        foregroundColor: Colors.white,
+        child: const Icon(Icons.message),
+      ),
     );
   }
 }
 
-// --- মেসেজিং স্ক্রিন ---
+// --- মেসেজিং স্ক্রিন (প্লাস আইকন ও টিক মার্ক সহ) ---
 class ConversationScreen extends StatefulWidget {
   final String myPhone;
-  final String receiverName;
   final String receiverPhone;
 
   const ConversationScreen({
     super.key,
     required this.myPhone,
-    required this.receiverName,
     required this.receiverPhone,
   });
 
@@ -525,19 +612,88 @@ class _ConversationScreenState extends State<ConversationScreen> {
     });
   }
 
+  // WhatsApp-এর মতো প্লাস (+) আইকনে চাপলে নিচের মেনু খোলা
+  void _showAttachmentOptions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(20),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Wrap(
+          spacing: 24,
+          runSpacing: 20,
+          alignment: WrapAlignment.center,
+          children: [
+            _buildActionItem(Icons.insert_drive_file, 'Document', const Color(0xFF7F66FF)),
+            _buildActionItem(Icons.camera_alt, 'Camera', const Color(0xFFD33682)),
+            _buildActionItem(Icons.photo, 'Gallery', const Color(0xFFAC44CF)),
+            _buildActionItem(Icons.headset, 'Audio', const Color(0xFFE95950)),
+            _buildActionItem(Icons.location_on, 'Location', const Color(0xFF1B9E5A)),
+            _buildActionItem(Icons.person, 'Contact', const Color(0xFF009EE0)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionItem(IconData icon, String label, Color color) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        CircleAvatar(
+          radius: 28,
+          backgroundColor: color,
+          child: Icon(icon, color: Colors.white, size: 28),
+        ),
+        const SizedBox(height: 6),
+        Text(label, style: const TextStyle(fontSize: 12, color: Colors.black87)),
+      ],
+    );
+  }
+
+  String _formatTime(Timestamp? timestamp) {
+    if (timestamp == null) return '';
+    final dt = timestamp.toDate();
+    final hour = dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour);
+    final minute = dt.minute.toString().padLeft(2, '0');
+    final ampm = dt.hour >= 12 ? 'PM' : 'AM';
+    return '$hour:$minute $ampm';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFECE5DD),
       appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(widget.receiverName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            Text(widget.receiverPhone, style: const TextStyle(fontSize: 12)),
-          ],
+        titleSpacing: 0,
+        leadingWidth: 70,
+        leading: InkWell(
+          onTap: () => Navigator.pop(context),
+          child: const Row(
+            children: [
+              SizedBox(width: 8),
+              Icon(Icons.arrow_back),
+              SizedBox(width: 4),
+              CircleAvatar(
+                radius: 17,
+                backgroundColor: Color(0xFF128C7E),
+                child: Icon(Icons.person, color: Colors.white, size: 20),
+              ),
+            ],
+          ),
         ),
+        title: Text(widget.receiverPhone, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFF075E54),
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(icon: const Icon(Icons.videocam), onPressed: () {}),
+          IconButton(icon: const Icon(Icons.call), onPressed: () {}),
+          IconButton(icon: const Icon(Icons.more_vert), onPressed: () {}),
+        ],
       ),
       body: Column(
         children: [
@@ -552,28 +708,60 @@ class _ConversationScreenState extends State<ConversationScreen> {
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                final docs = snapshot.data!.docs;
+                final docs = snapshot.data!.docs.where((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  final s = data['sender'];
+                  final r = data['receiver'];
+                  return (s == widget.myPhone && r == widget.receiverPhone) ||
+                         (s == widget.receiverPhone && r == widget.myPhone);
+                }).toList();
 
                 return ListView.builder(
                   reverse: true,
                   itemCount: docs.length,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
                   itemBuilder: (context, index) {
                     final data = docs[index].data() as Map<String, dynamic>;
                     final isMe = data['sender'] == widget.myPhone;
+                    final timeText = _formatTime(data['timestamp'] as Timestamp?);
 
                     return Align(
                       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
                       child: Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                        padding: const EdgeInsets.fromLTRB(10, 8, 10, 5),
+                        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.78),
                         decoration: BoxDecoration(
-                          color: isMe ? const Color(0xFFDCF8C6) : Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 2, offset: Offset(0, 1))],
+                          color: isMe ? const Color(0xFFE7FFDB) : Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 1, offset: Offset(0, 1))],
                         ),
-                        child: Text(
-                          data['text'] ?? '',
-                          style: const TextStyle(color: Colors.black87, fontSize: 15),
+                        child: Wrap(
+                          alignment: WrapAlignment.end,
+                          crossAxisAlignment: WrapCrossAlignment.end,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(right: 8.0, bottom: 2.0),
+                              child: Text(
+                                data['text'] ?? '',
+                                style: const TextStyle(color: Colors.black87, fontSize: 15),
+                              ),
+                            ),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  timeText,
+                                  style: const TextStyle(fontSize: 10, color: Colors.black54),
+                                ),
+                                if (isMe) ...[
+                                  const SizedBox(width: 3),
+                                  // WhatsApp ব্লু ডাবল টিক মার্ক
+                                  const Icon(Icons.done_all, size: 15, color: Color(0xFF34B7F1)),
+                                ],
+                              ],
+                            ),
+                          ],
                         ),
                       ),
                     );
@@ -582,31 +770,53 @@ class _ConversationScreenState extends State<ConversationScreen> {
               },
             ),
           ),
+
+          // চ্যাট ইনপুট বার (প্লাস আইকন সহ)
           Container(
-            padding: const EdgeInsets.all(8),
-            color: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+            color: Colors.transparent,
             child: Row(
               children: [
                 Expanded(
-                  child: TextField(
-                    controller: _msgController,
-                    decoration: InputDecoration(
-                      hintText: 'Type a message...',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(24),
-                        borderSide: BorderSide.none,
-                      ),
-                      filled: true,
-                      fillColor: Colors.grey.shade100,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(25),
+                      boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 1)],
+                    ),
+                    child: Row(
+                      children: [
+                        // WhatsApp স্টাইল প্লাস (+) আইকন
+                        IconButton(
+                          icon: const Icon(Icons.add, color: Color(0xFF007AFF), size: 26),
+                          onPressed: _showAttachmentOptions,
+                        ),
+                        Expanded(
+                          child: TextField(
+                            controller: _msgController,
+                            decoration: const InputDecoration(
+                              hintText: 'Message',
+                              border: InputBorder.none,
+                              contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.camera_alt, color: Colors.grey),
+                          onPressed: () {},
+                        ),
+                      ],
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                IconButton.filled(
-                  icon: const Icon(Icons.send),
-                  onPressed: _sendMessage,
-                  style: IconButton.styleFrom(backgroundColor: const Color(0xFF075E54)),
+                const SizedBox(width: 6),
+                CircleAvatar(
+                  radius: 23,
+                  backgroundColor: const Color(0xFF075E54),
+                  child: IconButton(
+                    icon: const Icon(Icons.send, color: Colors.white, size: 20),
+                    onPressed: _sendMessage,
+                  ),
                 ),
               ],
             ),
