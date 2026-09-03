@@ -23,6 +23,7 @@ String maskPhoneNumber(String phone) {
 }
 
 final ValueNotifier<String> appLanguage = ValueNotifier<String>('en');
+final ValueNotifier<ThemeMode> appThemeMode = ValueNotifier<ThemeMode>(ThemeMode.dark);
 
 final Map<String, Map<String, String>> localizedStrings = {
   'en': {
@@ -37,7 +38,6 @@ final Map<String, Map<String, String>> localizedStrings = {
     'enter_code': 'Enter 6-digit Code (123456)',
     'invalid_phone': 'Please enter a valid phone number',
     'wrong_otp': 'Wrong OTP! Enter: 123456',
-    'change_language': 'Language',
   },
   'bn': {
     'welcome': 'VibeNet-এ স্বাগতম',
@@ -51,7 +51,6 @@ final Map<String, Map<String, String>> localizedStrings = {
     'enter_code': '৬ সংখ্যার কোড দিন (123456)',
     'invalid_phone': 'সঠিক মোবাইল নম্বর দিন',
     'wrong_otp': 'ভুল OTP! সঠিক কোডটি দিন: 123456',
-    'change_language': 'ভাষা পরিবর্তন',
   },
   'hi': {
     'welcome': 'VibeNet में आपका स्वागत है',
@@ -65,7 +64,6 @@ final Map<String, Map<String, String>> localizedStrings = {
     'enter_code': '6 अंकों का कोड दर्ज करें (123456)',
     'invalid_phone': 'कृपया सही फ़ोन नंबर दर्ज करें',
     'wrong_otp': 'गलत OTP! सही कोड दर्ज करें: 123456',
-    'change_language': 'भाषा बदलें',
   },
 };
 
@@ -76,7 +74,6 @@ String tr(String key) {
 void showLanguageSelector(BuildContext context) {
   showModalBottomSheet(
     context: context,
-    backgroundColor: const Color(0xFF121212),
     shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
     builder: (ctx) => Container(
       padding: const EdgeInsets.symmetric(vertical: 20),
@@ -86,8 +83,8 @@ void showLanguageSelector(BuildContext context) {
           const Text('Choose Language / ভাষা নির্বাচন করুন', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xFF1E88E5))),
           const SizedBox(height: 12),
           ListTile(
-            leading: const Icon(Icons.language, color: Colors.white70),
-            title: const Text('English', style: TextStyle(color: Colors.white)),
+            leading: const Icon(Icons.language),
+            title: const Text('English'),
             trailing: appLanguage.value == 'en' ? const Icon(Icons.check, color: Color(0xFF1E88E5)) : null,
             onTap: () {
               appLanguage.value = 'en';
@@ -95,8 +92,8 @@ void showLanguageSelector(BuildContext context) {
             },
           ),
           ListTile(
-            leading: const Icon(Icons.translate, color: Colors.white70),
-            title: const Text('বাংলা (Bengali)', style: TextStyle(color: Colors.white)),
+            leading: const Icon(Icons.translate),
+            title: const Text('বাংলা (Bengali)'),
             trailing: appLanguage.value == 'bn' ? const Icon(Icons.check, color: Color(0xFF1E88E5)) : null,
             onTap: () {
               appLanguage.value = 'bn';
@@ -104,8 +101,8 @@ void showLanguageSelector(BuildContext context) {
             },
           ),
           ListTile(
-            leading: const Icon(Icons.translate, color: Colors.white70),
-            title: const Text('हिन्दी (Hindi)', style: TextStyle(color: Colors.white)),
+            leading: const Icon(Icons.translate),
+            title: const Text('हिन्दी (Hindi)'),
             trailing: appLanguage.value == 'hi' ? const Icon(Icons.check, color: Color(0xFF1E88E5)) : null,
             onTap: () {
               appLanguage.value = 'hi';
@@ -126,17 +123,30 @@ class VibeNetApp extends StatelessWidget {
     return ValueListenableBuilder<String>(
       valueListenable: appLanguage,
       builder: (context, lang, child) {
-        return MaterialApp(
-          title: 'VibeNet',
-          debugShowCheckedModeBanner: false,
-          theme: ThemeData(
-            fontFamily: 'Roboto',
-            colorSchemeSeed: const Color(0xFF1E88E5),
-            useMaterial3: true,
-            brightness: Brightness.dark,
-            scaffoldBackgroundColor: const Color(0xFF121212),
-          ),
-          home: const FirebaseInitWrapper(),
+        return ValueListenableBuilder<ThemeMode>(
+          valueListenable: appThemeMode,
+          builder: (context, themeMode, _) {
+            return MaterialApp(
+              title: 'VibeNet',
+              debugShowCheckedModeBanner: false,
+              themeMode: themeMode,
+              theme: ThemeData(
+                fontFamily: 'Roboto',
+                colorSchemeSeed: const Color(0xFF1E88E5),
+                useMaterial3: true,
+                brightness: Brightness.light,
+                scaffoldBackgroundColor: Colors.white,
+              ),
+              darkTheme: ThemeData(
+                fontFamily: 'Roboto',
+                colorSchemeSeed: const Color(0xFF1E88E5),
+                useMaterial3: true,
+                brightness: Brightness.dark,
+                scaffoldBackgroundColor: const Color(0xFF121212),
+              ),
+              home: const FirebaseInitWrapper(),
+            );
+          },
         );
       },
     );
@@ -194,11 +204,11 @@ class _FirebaseInitWrapperState extends State<FirebaseInitWrapper> {
               if (loginSnapshot.connectionState == ConnectionState.done && loginSnapshot.hasData) {
                 return loginSnapshot.data!;
               }
-              return const Scaffold(backgroundColor: Color(0xFF121212), body: Center(child: CircularProgressIndicator(color: Color(0xFF1E88E5))));
+              return const Scaffold(body: Center(child: CircularProgressIndicator(color: Color(0xFF1E88E5))));
             },
           );
         }
-        return const Scaffold(backgroundColor: Color(0xFF121212), body: Center(child: CircularProgressIndicator(color: Color(0xFF1E88E5))));
+        return const Scaffold(body: Center(child: CircularProgressIndicator(color: Color(0xFF1E88E5))));
       },
     );
   }
@@ -210,9 +220,7 @@ class WelcomeTermsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF121212),
         elevation: 0,
         actions: [
           TextButton.icon(
@@ -232,7 +240,7 @@ class WelcomeTermsScreen extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(tr('welcome'), style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.white)),
+              Text(tr('welcome'), style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
               Column(
                 children: [
                   Container(
@@ -245,7 +253,7 @@ class WelcomeTermsScreen extends StatelessWidget {
                     child: const Icon(Icons.forum_rounded, size: 85, color: Color(0xFF1E88E5)),
                   ),
                   const SizedBox(height: 28),
-                  Text(tr('terms_desc'), textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70, fontSize: 14)),
+                  Text(tr('terms_desc'), textAlign: TextAlign.center, style: const TextStyle(fontSize: 14)),
                 ],
               ),
               Column(
@@ -263,7 +271,7 @@ class WelcomeTermsScreen extends StatelessWidget {
                     child: Text(tr('agree_continue'), style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)),
                   ),
                   const SizedBox(height: 14),
-                  const Text('from VibeNet Team', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                  const Text('from VibeNet Team', style: TextStyle(fontSize: 12)),
                 ],
               ),
             ],
@@ -372,27 +380,23 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
       appBar: AppBar(
         title: Text(tr('enter_phone'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
         centerTitle: true,
-        backgroundColor: const Color(0xFF121212),
-        foregroundColor: const Color(0xFF1E88E5),
         elevation: 0,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           children: [
-            Text(tr('verify_desc'), textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70, fontSize: 14)),
+            Text(tr('verify_desc'), textAlign: TextAlign.center, style: const TextStyle(fontSize: 14)),
             const SizedBox(height: 28),
             DropdownButtonHideUnderline(
               child: DropdownButton<String>(
                 value: _selectedCountry,
-                dropdownColor: const Color(0xFF1E1E1E),
                 isExpanded: true,
                 onChanged: _isOtpSent ? null : (v) => setState(() => _selectedCountry = v!),
-                items: _countries.map((c) => DropdownMenuItem(value: c['name'], child: Center(child: Text(c['name']!, style: const TextStyle(color: Colors.white))))).toList(),
+                items: _countries.map((c) => DropdownMenuItem(value: c['name'], child: Center(child: Text(c['name']!)))).toList(),
               ),
             ),
             Container(height: 1.5, color: const Color(0xFF1E88E5)),
@@ -404,23 +408,22 @@ class _LoginScreenState extends State<LoginScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFF1E88E5), width: 1.5))),
                   alignment: Alignment.center,
-                  child: Text(_selectedCountryCode, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                  child: Text(_selectedCountryCode, style: const TextStyle(fontWeight: FontWeight.bold)),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: TextField(
                     controller: _phoneController,
                     keyboardType: TextInputType.phone,
-                    style: const TextStyle(color: Colors.white),
                     enabled: !_isOtpSent,
-                    decoration: InputDecoration(hintText: tr('phone_hint'), hintStyle: const TextStyle(color: Colors.white38)),
+                    decoration: InputDecoration(hintText: tr('phone_hint')),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 32),
             if (_isOtpSent) ...[
-              TextField(controller: _otpController, keyboardType: TextInputType.number, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white), decoration: InputDecoration(labelText: tr('enter_code'), labelStyle: const TextStyle(color: Colors.white70))),
+              TextField(controller: _otpController, keyboardType: TextInputType.number, textAlign: TextAlign.center, decoration: InputDecoration(labelText: tr('enter_code'))),
               const SizedBox(height: 24),
               ElevatedButton(onPressed: _isLoading ? null : _verifyOtp, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E88E5), foregroundColor: Colors.white), child: Text(tr('verify'))),
             ] else ...[
@@ -443,24 +446,43 @@ class ProfilePhotoStepScreen extends StatefulWidget {
 }
 
 class _ProfilePhotoStepScreenState extends State<ProfilePhotoStepScreen> {
-  final List<String> _avatars = [
-    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
-    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200',
-  ];
   String? _photo;
+
+  Future<void> _pickImage(ImageSource source) async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: source);
+    if (pickedFile != null) {
+      setState(() => _photo = pickedFile.path);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
-      appBar: AppBar(title: const Text('Profile Photo'), backgroundColor: const Color(0xFF121212)),
+      appBar: AppBar(title: const Text('Profile Photo')),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircleAvatar(radius: 60, backgroundColor: Colors.white24, backgroundImage: _photo != null ? NetworkImage(_photo!) : null, child: _photo == null ? const Icon(Icons.person, size: 60, color: Colors.white70) : null),
+            CircleAvatar(
+              radius: 60,
+              backgroundImage: _photo != null ? FileImage(File(_photo!)) as ImageProvider : null,
+              child: _photo == null ? const Icon(Icons.person, size: 60) : null,
+            ),
             const SizedBox(height: 20),
-            ElevatedButton(onPressed: () => setState(() => _photo = _avatars[0]), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E88E5), foregroundColor: Colors.white), child: const Text('Select Avatar')),
+            ElevatedButton.icon(
+              onPressed: () => _pickImage(ImageSource.gallery),
+              icon: const Icon(Icons.photo_library),
+              label: const Text('Choose from Gallery'),
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E88E5), foregroundColor: Colors.white),
+            ),
+            const SizedBox(height: 10),
+            ElevatedButton.icon(
+              onPressed: () => _pickImage(ImageSource.camera),
+              icon: const Icon(Icons.camera_alt),
+              label: const Text('Take a Photo'),
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E88E5), foregroundColor: Colors.white),
+            ),
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => ProfileNameStepScreen(myPhone: widget.myPhone, photoUrl: _photo, sessionToken: widget.sessionToken))),
@@ -500,13 +522,12 @@ class _ProfileNameStepScreenState extends State<ProfileNameStepScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
-      appBar: AppBar(title: const Text('Enter Name'), backgroundColor: const Color(0xFF121212)),
+      appBar: AppBar(title: const Text('Enter Name')),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           children: [
-            TextField(controller: _nameCtrl, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Your Name')),
+            TextField(controller: _nameCtrl, decoration: const InputDecoration(labelText: 'Your Name')),
             const SizedBox(height: 20),
             ElevatedButton(onPressed: _finish, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E88E5), foregroundColor: Colors.white), child: const Text('Finish')),
           ],
@@ -527,6 +548,9 @@ class MainDashboardScreen extends StatefulWidget {
 
 class _MainDashboardScreenState extends State<MainDashboardScreen> {
   int _currentIndex = 0;
+  String _searchQuery = '';
+  bool _isSearching = false;
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
@@ -543,14 +567,30 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
     });
   }
 
+  void _syncContacts() async {
+    if (await Permission.contacts.request().isGranted) {
+      final contacts = await FlutterContacts.getContacts(withProperties: true);
+      for (var c in contacts) {
+        if (c.phones.isNotEmpty) {
+          String rawPhone = c.phones.first.number.replaceAll(RegExp(r'\s+'), '');
+          if (!rawPhone.startsWith('+')) {
+            rawPhone = '+91$rawPhone';
+          }
+          await FirebaseFirestore.instance.collection('users').where('phone', isEqualTo: rawPhone).get();
+        }
+      }
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Contacts synced successfully!')));
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Contact permission denied')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
       body: SafeArea(
         child: Column(
           children: [
-            // Top App Bar / Header section
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
               child: Row(
@@ -564,12 +604,33 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                         child: Icon(Icons.person, color: Colors.white, size: 20),
                       ),
                       const SizedBox(width: 10),
-                      const Text('VibeNet', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
+                      _isSearching
+                          ? SizedBox(
+                              width: 180,
+                              child: TextField(
+                                controller: _searchController,
+                                autofocus: true,
+                                onChanged: (v) => setState(() => _searchQuery = v),
+                                decoration: const InputDecoration(hintText: 'Search by name/id...', border: InputBorder.none),
+                              ),
+                            )
+                          : const Text('VibeNet', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
                     ],
                   ),
                   Row(
                     children: [
-                      IconButton(icon: const Icon(Icons.search, color: Colors.white70), onPressed: () {}),
+                      IconButton(
+                        icon: Icon(_isSearching ? Icons.close : Icons.search),
+                        onPressed: () {
+                          setState(() {
+                            _isSearching = !_isSearching;
+                            if (!_isSearching) {
+                              _searchQuery = '';
+                              _searchController.clear();
+                            }
+                          });
+                        },
+                      ),
                       IconButton(
                         icon: const Icon(Icons.logout, color: Colors.red),
                         onPressed: () async {
@@ -613,14 +674,17 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
               ),
             ),
 
-            // Status Stories Row
+            // Status Stories Row with Sync Plus Icon
             SizedBox(
               height: 90,
               child: ListView(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 children: [
-                  _buildStatusItem('My Status', Icons.add),
+                  GestureDetector(
+                    onTap: _syncContacts,
+                    child: _buildStatusItem('Add Friend', Icons.add),
+                  ),
                   _buildStatusItem('Rahul', null),
                   _buildStatusItem('Priya', null),
                   _buildStatusItem('Anita', null),
@@ -629,19 +693,25 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
               ),
             ),
 
-            const Divider(color: Colors.white24, height: 1),
+            const Divider(height: 1),
 
-            // Chats List / Profile Screen based on bottom nav
             Expanded(
               child: _currentIndex == 0
                   ? StreamBuilder<QuerySnapshot>(
                       stream: FirebaseFirestore.instance.collection('users').snapshots(),
                       builder: (context, snapshot) {
                         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-                        final users = snapshot.data!.docs.where((d) => d.id != widget.myPhone).toList();
-                        
+                        final users = snapshot.data!.docs.where((d) {
+                          if (d.id == widget.myPhone) return false;
+                          if (_searchQuery.isEmpty) return true;
+                          final data = d.data() as Map<String, dynamic>;
+                          final name = (data['name'] ?? '').toString().toLowerCase();
+                          final phone = (data['phone'] ?? '').toString().toLowerCase();
+                          return name.contains(_searchQuery.toLowerCase()) || phone.contains(_searchQuery.toLowerCase());
+                        }).toList();
+
                         if (users.isEmpty) {
-                          return const Center(child: Text('No contacts found', style: TextStyle(color: Colors.white54)));
+                          return const Center(child: Text('No contacts found'));
                         }
 
                         return ListView.builder(
@@ -653,11 +723,11 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                             final photo = data['photoUrl'] ?? '';
                             return ListTile(
                               leading: CircleAvatar(
-                                backgroundImage: photo.isNotEmpty ? NetworkImage(photo) : null,
+                                backgroundImage: photo.isNotEmpty ? (photo.startsWith('http') ? NetworkImage(photo) : FileImage(File(photo)) as ImageProvider) : null,
                                 child: photo.isEmpty ? const Icon(Icons.person) : null,
                               ),
                               title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                              subtitle: Text(maskPhoneNumber(phone), style: const TextStyle(color: Colors.white60)),
+                              subtitle: Text(maskPhoneNumber(phone)),
                               onTap: () {
                                 Navigator.push(context, MaterialPageRoute(builder: (c) => ConversationScreen(myPhone: widget.myPhone, receiverPhone: phone, receiverName: name)));
                               },
@@ -671,7 +741,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                       : Center(
                           child: Text(
                             _currentIndex == 1 ? 'News Feed Section' : (_currentIndex == 2 ? 'Create Post' : 'Reels Section'),
-                            style: const TextStyle(color: Colors.white70, fontSize: 16),
+                            style: const TextStyle(fontSize: 16),
                           ),
                         )),
             ),
@@ -681,9 +751,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
-        backgroundColor: const Color(0xFF1A1A1A),
         selectedItemColor: const Color(0xFF1E88E5),
-        unselectedItemColor: Colors.white54,
         type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.chat_bubble), label: 'Chats'),
@@ -709,63 +777,123 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
             ),
             child: CircleAvatar(
               radius: 24,
-              backgroundColor: Colors.white24,
-              child: Icon(icon ?? Icons.person, color: Colors.white, size: icon != null ? 20 : 24),
+              child: Icon(icon ?? Icons.person, size: icon != null ? 20 : 24),
             ),
           ),
           const SizedBox(height: 4),
-          Text(name, style: const TextStyle(fontSize: 11, color: Colors.white70)),
+          Text(name, style: const TextStyle(fontSize: 11)),
         ],
       ),
     );
   }
 }
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   final String myPhone;
   const ProfileScreen({super.key, required this.myPhone});
 
   @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  String? _newPhoto;
+
+  Future<void> _updateProfilePhoto() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      setState(() => _newPhoto = pickedFile.path);
+      await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({
+        'photoUrl': _newPhoto,
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile photo updated successfully!')));
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          children: [
-            const SizedBox(height: 20),
-            const CircleAvatar(
-              radius: 50,
-              backgroundColor: Color(0xFF1E88E5),
-              child: Icon(Icons.person, size: 50, color: Colors.white),
+      body: StreamBuilder<DocumentSnapshot>(
+        stream: FirebaseFirestore.instance.collection('users').doc(widget.myPhone).snapshots(),
+        builder: (context, snapshot) {
+          String photoUrl = '';
+          if (snapshot.hasData && snapshot.data!.exists) {
+            final data = snapshot.data!.data() as Map<String, dynamic>?;
+            photoUrl = data?['photoUrl'] ?? '';
+          }
+
+          return Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              children: [
+                const SizedBox(height: 20),
+                GestureDetector(
+                  onTap: _updateProfilePhoto,
+                  child: Stack(
+                    children: [
+                      CircleAvatar(
+                        radius: 50,
+                        backgroundImage: (_newPhoto != null && _newPhoto!.isNotEmpty)
+                            ? FileImage(File(_newPhoto!)) as ImageProvider
+                            : (photoUrl.isNotEmpty
+                                ? (photoUrl.startsWith('http') ? NetworkImage(photoUrl) : FileImage(File(photoUrl)) as ImageProvider)
+                                : null),
+                        child: (_newPhoto == null && photoUrl.isEmpty) ? const Icon(Icons.person, size: 50, color: Colors.white) : null,
+                      ),
+                      const Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: CircleAvatar(
+                          radius: 16,
+                          backgroundColor: Color(0xFF1E88E5),
+                          child: Icon(Icons.camera_alt, size: 16, color: Colors.white),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  maskPhoneNumber(widget.myPhone),
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 30),
+                ListTile(
+                  leading: const Icon(Icons.language, color: Color(0xFF1E88E5)),
+                  title: const Text('Change Language / ভাষা পরিবর্তন'),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  onTap: () => showLanguageSelector(context),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.brightness_6, color: Color(0xFF1E88E5)),
+                  title: const Text('Dark / Light Mode'),
+                  trailing: Switch(
+                    value: appThemeMode.value == ThemeMode.dark,
+                    onChanged: (isDark) {
+                      appThemeMode.value = isDark ? ThemeMode.dark : ThemeMode.light;
+                    },
+                  ),
+                ),
+                const Divider(),
+                ListTile(
+                  leading: const Icon(Icons.logout, color: Colors.red),
+                  title: const Text('Log Out', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                  onTap: () async {
+                    await FirebaseAuth.instance.signOut();
+                    Navigator.pushAndRemoveUntil(
+                      context,
+                      MaterialPageRoute(builder: (c) => const WelcomeTermsScreen()),
+                      (r) => false,
+                    );
+                  },
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
-            Text(
-              maskPhoneNumber(myPhone),
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
-            ),
-            const SizedBox(height: 30),
-            ListTile(
-              leading: const Icon(Icons.language, color: Color(0xFF1E88E5)),
-              title: const Text('Change Language / ভাষা পরিবর্তন', style: TextStyle(color: Colors.white)),
-              trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.white54),
-              onTap: () => showLanguageSelector(context),
-            ),
-            const Divider(color: Colors.white24),
-            ListTile(
-              leading: const Icon(Icons.logout, color: Colors.red),
-              title: const Text('Log Out', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-              onTap: () async {
-                await FirebaseAuth.instance.signOut();
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (c) => const WelcomeTermsScreen()),
-                  (r) => false,
-                );
-              },
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -836,13 +964,12 @@ class _ConversationScreenState extends State<ConversationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(widget.receiverName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            Text(maskPhoneNumber(widget.receiverPhone), style: const TextStyle(fontSize: 12, color: Colors.white60)),
+            Text(maskPhoneNumber(widget.receiverPhone), style: const TextStyle(fontSize: 12)),
           ],
         ),
         backgroundColor: const Color(0xFF1E88E5),
@@ -883,7 +1010,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
                           margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           decoration: BoxDecoration(
-                            color: isMe ? const Color(0xFF1E88E5) : Colors.white,
+                            color: isMe ? const Color(0xFF1E88E5) : Colors.grey[200],
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Row(
@@ -920,8 +1047,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
                 Expanded(
                   child: TextField(
                     controller: _msgCtrl,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(hintText: 'Type a message...', hintStyle: TextStyle(color: Colors.white54)),
+                    decoration: const InputDecoration(hintText: 'Type a message...'),
                   ),
                 ),
                 IconButton(
