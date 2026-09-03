@@ -1253,25 +1253,42 @@ class _ConversationScreenState extends State<ConversationScreen> {
     });
   }
 
-  void _deleteMessage(String docId) async {
-    showDialog(
+  void _deleteMessage(String docId, bool isMe) {
+    showModalBottomSheet(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete Message'),
-        content: const Text('Are you sure you want to delete this message?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              await FirebaseFirestore.instance.collection('chats').doc(docId).delete();
-            },
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
-          ),
-        ],
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Delete Message', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            ListTile(
+              leading: const Icon(Icons.delete_outline, color: Colors.orange),
+              title: const Text('Delete for me'),
+              onTap: () async {
+                Navigator.pop(ctx);
+                await FirebaseFirestore.instance.collection('chats').doc(docId).delete();
+              },
+            ),
+            if (isMe) ...[
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.delete_forever, color: Colors.red),
+                title: const Text('Delete for everyone', style: TextStyle(color: Colors.red)),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await FirebaseFirestore.instance.collection('chats').doc(docId).delete();
+                },
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -1315,7 +1332,8 @@ class _ConversationScreenState extends State<ConversationScreen> {
                     }
 
                     return GestureDetector(
-                      onLongPress: () => _deleteMessage(doc.id),
+                      onLongPress: () => _deleteMessage(doc.id, isMe),
+                      
                       child: Align(
                         alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
                         child: Container(
