@@ -13,7 +13,7 @@ void main() {
   runApp(const VibeNetApp());
 }
 
-// ফোন নম্বর মাস্ক বা হাইড করার ফাংশন (গোপনীয়তা রক্ষার জন্য)
+// ফোন নম্বর মাস্ক বা হাইড করার ফাংশন
 String maskPhoneNumber(String phone) {
   if (phone.length > 6) {
     return '${phone.substring(0, 3)}••••••${phone.substring(phone.length - 4)}';
@@ -559,7 +559,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
   }
 }
 
-// --- ড্যাশবোর্ড বডি (স্ক্রিনশটের মতো এক্সাক্ট লুক) ---
+// --- ড্যাশবোর্ড বডি (লাইভ আবহাওয়া কার্ড ও স্ট্যাটাস সহ) ---
 class DashboardHomeBody extends StatefulWidget {
   final String myPhone;
   const DashboardHomeBody({super.key, required this.myPhone});
@@ -737,7 +737,6 @@ class _DashboardHomeBodyState extends State<DashboardHomeBody> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // স্ক্রিনশটের মতো ওপরের কার্ড (প্রোফাইল পিকচার, VibeNet, সার্চ ও কিউআর কোড এবং লাইভ আবহাওয়া)
             Container(
               margin: const EdgeInsets.all(16),
               padding: const EdgeInsets.all(18),
@@ -792,7 +791,7 @@ class _DashboardHomeBodyState extends State<DashboardHomeBody> {
               ),
             ),
 
-            // স্ট্যাটাস বা সার্কেল সেকশন (স্ক্রিনশটের মতো)
+            // স্ট্যাটাস সেকশন
             SizedBox(
               height: 90,
               child: ListView(
@@ -812,7 +811,6 @@ class _DashboardHomeBodyState extends State<DashboardHomeBody> {
               child: Text('CHATS', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black54, letterSpacing: 1)),
             ),
 
-            // চ্যাট লিস্ট
             StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance.collection('chats').orderBy('timestamp', descending: true).snapshots(),
               builder: (context, snapshot) {
@@ -950,7 +948,7 @@ class GlobalUserSearchDelegate extends SearchDelegate<String> {
   }
 }
 
-// --- স্টাইলিশ প্রোফাইল স্ক্রিন ---
+// --- WhatsApp স্টাইল Profile ও Settings স্ক্রিন ---
 class WhatsAppProfileScreen extends StatefulWidget {
   final String myPhone;
   const WhatsAppProfileScreen({super.key, required this.myPhone});
@@ -963,6 +961,8 @@ class _WhatsAppProfileScreenState extends State<WhatsAppProfileScreen> {
   String _userName = 'VibeNet User';
   String _about = 'Hey there! I am using VibeNet.';
   String _photoUrl = '';
+  String _lastSeenOption = 'Everyone';
+  bool _readReceipts = true;
 
   @override
   void initState() {
@@ -977,8 +977,86 @@ class _WhatsAppProfileScreenState extends State<WhatsAppProfileScreen> {
         _userName = doc.data()!['name'] ?? _userName;
         _about = doc.data()!['about'] ?? _about;
         _photoUrl = doc.data()!['photoUrl'] ?? '';
+        _lastSeenOption = doc.data()!['lastSeen'] ?? 'Everyone';
+        _readReceipts = doc.data()!['readReceipts'] ?? true;
       });
     }
+  }
+
+  void _openPrivacySettings() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) => Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Privacy Settings', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1E88E5))),
+              const SizedBox(height: 16),
+              const Text('Who can see my personal info', style: TextStyle(fontSize: 13, color: Colors.grey, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Last seen and online'),
+                subtitle: Text(_lastSeenOption),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  _showChoiceDialog('Last seen and online', ['Everyone', 'My contacts', 'Nobody'], _lastSeenOption, (val) {
+                    setState(() => _lastSeenOption = val);
+                    setModalState(() {});
+                    FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({'lastSeen': val});
+                  });
+                },
+              ),
+              const Divider(height: 1),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Read receipts (Blue ticks)'),
+                subtitle: const Text('If turned off, you won\'t send or receive Read receipts.'),
+                value: _readReceipts,
+                activeColor: const Color(0xFF1E88E5),
+                onChanged: (val) {
+                  setState(() => _readReceipts = val);
+                  setModalState(() {});
+                  FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({'readReceipts': val});
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showChoiceDialog(String title, List<String> options, String currentVal, Function(String) onSelect) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: options.map((opt) {
+            return RadioListTile<String>(
+              title: Text(opt),
+              value: opt,
+              groupValue: currentVal,
+              activeColor: const Color(0xFF1E88E5),
+              onChanged: (v) {
+                if (v != null) {
+                  onSelect(v);
+                  Navigator.pop(ctx);
+                }
+              },
+            );
+          }).toList(),
+        ),
+      ),
+    );
   }
 
   @override
@@ -1018,6 +1096,13 @@ class _WhatsAppProfileScreenState extends State<WhatsAppProfileScreen> {
                 ),
               ],
             ),
+          ),
+          const Divider(thickness: 1, height: 1),
+          ListTile(
+            leading: const Icon(Icons.lock_outline, color: Colors.grey),
+            title: const Text('Privacy', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+            subtitle: const Text('Last seen, read receipts', style: TextStyle(fontSize: 13, color: Colors.grey)),
+            onTap: _openPrivacySettings,
           ),
           const Divider(thickness: 1, height: 1),
           ListTile(
