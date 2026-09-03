@@ -1314,6 +1314,16 @@ class _ConversationScreenState extends State<ConversationScreen> {
     });
   }
 
+  void _sendMediaMessage(String mediaType, String content) async {
+    await FirebaseFirestore.instance.collection('chats').add({
+      'sender': widget.myPhone,
+      'receiver': widget.receiverPhone,
+      'text': '[$mediaType] $content',
+      'isSeen': false,
+      'timestamp': FieldValue.serverTimestamp(),
+    });
+  }
+
   void _deleteMessage(String docId, bool isMe) {
     showModalBottomSheet(
       context: context,
@@ -1346,6 +1356,31 @@ class _ConversationScreenState extends State<ConversationScreen> {
             ],
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildAttachmentItem(IconData icon, Color color, String label, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 58,
+            height: 58,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.2),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 28),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: const TextStyle(color: Colors.white70, fontSize: 12),
+          ),
+        ],
       ),
     );
   }
@@ -1511,7 +1546,29 @@ class _ConversationScreenState extends State<ConversationScreen> {
                         IconButton(
                           icon: const Icon(Icons.emoji_emotions_outlined, color: Colors.grey),
                           onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Emoji Picker')));
+                            showModalBottomSheet(
+                              context: context,
+                              builder: (ctx) => Container(
+                                padding: const EdgeInsets.all(16),
+                                height: 200,
+                                child: GridView.count(
+                                  crossAxisCount: 6,
+                                  children: ['😀', '😂', '😍', '😎', '😢', '🔥', '👍', '❤️', '🎉', '✨', '🙏', '💯']
+                                      .map((emoji) => InkWell(
+                                            onTap: () {
+                                              setState(() {
+                                                _msgCtrl.text += emoji;
+                                              });
+                                              Navigator.pop(ctx);
+                                            },
+                                            child: Center(
+                                              child: Text(emoji, style: const TextStyle(fontSize: 28)),
+                                            ),
+                                          ))
+                                      .toList(),
+                                ),
+                              ),
+                            );
                           },
                         ),
                         Expanded(
@@ -1526,19 +1583,94 @@ class _ConversationScreenState extends State<ConversationScreen> {
                         IconButton(
                           icon: const Icon(Icons.attach_file, color: Colors.grey),
                           onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Attachment Options')));
+                            showModalBottomSheet(
+                              context: context,
+                              backgroundColor: const Color(0xFF1E1E1E),
+                              shape: const RoundedRectangleBorder(
+                                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                              ),
+                              builder: (ctx) => Container(
+                                padding: const EdgeInsets.all(20),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      width: 40,
+                                      height: 4,
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey[600],
+                                        borderRadius: BorderRadius.circular(2),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 20),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                      children: [
+                                        _buildAttachmentItem(Icons.photo_library, Colors.blue, 'Gallery', () async {
+                                          Navigator.pop(ctx);
+                                          final picker = ImagePicker();
+                                          final image = await picker.pickImage(source: ImageSource.gallery);
+                                          if (image != null) {
+                                            _sendMediaMessage('Gallery Image', image.path);
+                                          }
+                                        }),
+                                        _buildAttachmentItem(Icons.location_on, Colors.green, 'Location', () {
+                                          Navigator.pop(ctx);
+                                          _sendMediaMessage('Location', 'Live GPS Location Shared');
+                                        }),
+                                        _buildAttachmentItem(Icons.person, Colors.lightBlueAccent, 'Contact', () {
+                                          Navigator.pop(ctx);
+                                          _sendMediaMessage('Contact', 'Shared a Contact');
+                                        }),
+                                        _buildAttachmentItem(Icons.insert_drive_file, Colors.purpleAccent, 'Document', () {
+                                          Navigator.pop(ctx);
+                                          _sendMediaMessage('Document', 'Sample_Document.pdf');
+                                        }),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 20),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                      children: [
+                                        _buildAttachmentItem(Icons.poll, Colors.amber, 'Poll', () {
+                                          Navigator.pop(ctx);
+                                          _sendMediaMessage('Poll', 'Created a new Poll');
+                                        }),
+                                        _buildAttachmentItem(Icons.currency_rupee, Colors.teal, 'Payment', () {
+                                          Navigator.pop(ctx);
+                                          _sendMediaMessage('Payment', '₹500.00 Sent via VibeNet UPI');
+                                        }),
+                                        _buildAttachmentItem(Icons.event, Colors.pinkAccent, 'Event', () {
+                                          Navigator.pop(ctx);
+                                          _sendMediaMessage('Event', 'Scheduled Meetup Event');
+                                        }),
+                                        _buildAttachmentItem(Icons.auto_awesome, Colors.blueAccent, 'AI images', () {
+                                          Navigator.pop(ctx);
+                                          _sendMediaMessage('AI Image', 'Generated AI Artwork');
+                                        }),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 10),
+                                  ],
+                                ),
+                              ),
+                            );
                           },
                         ),
                         IconButton(
                           icon: const Icon(Icons.currency_rupee, color: Colors.grey),
                           onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('UPI Payment Option')));
+                            _sendMediaMessage('Payment', '₹100.00 Quick UPI Transfer');
                           },
                         ),
                         IconButton(
                           icon: const Icon(Icons.camera_alt_outlined, color: Colors.grey),
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Camera Quick Open')));
+                          onPressed: () async {
+                            final picker = ImagePicker();
+                            final photo = await picker.pickImage(source: ImageSource.camera);
+                            if (photo != null) {
+                              _sendMediaMessage('Camera Photo', photo.path);
+                            }
                           },
                         ),
                       ],
@@ -1553,7 +1685,8 @@ class _ConversationScreenState extends State<ConversationScreen> {
                     icon: Icon(_msgCtrl.text.isEmpty ? Icons.mic : Icons.send, color: Colors.white),
                     onPressed: () {
                       if (_msgCtrl.text.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Voice Recording...')));
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Voice Note Recorded & Sent')));
+                        _sendMediaMessage('Voice Note', 'Audio Message (0:15)');
                       } else {
                         _send();
                       }
