@@ -8,9 +8,17 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
-void main() {
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+}
+
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
   runApp(const VibeNetApp());
 }
 
@@ -148,22 +156,6 @@ class FirebaseInitWrapper extends StatefulWidget {
 }
 
 class _FirebaseInitWrapperState extends State<FirebaseInitWrapper> {
-  late final Future<FirebaseApp> _initialization;
-
-  @override
-  void initState() {
-    super.initState();
-    _initialization = Firebase.initializeApp(
-      options: const FirebaseOptions(
-        apiKey: 'AIzaSyCj7GM2yfp_16tgFpZqaxGU4InlcUgKFA4',
-        appId: '1:328420807383:android:49db8e29dc03664c64d692',
-        messagingSenderId: '328420807383',
-        projectId: 'vibenet-chat',
-        storageBucket: 'vibenet-chat.firebasestorage.app',
-      ),
-    );
-  }
-
   Future<Widget> _checkLoginStatus() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
@@ -186,19 +178,11 @@ class _FirebaseInitWrapperState extends State<FirebaseInitWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<FirebaseApp>(
-      future: _initialization,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.done) {
-          return FutureBuilder<Widget>(
-            future: _checkLoginStatus(),
-            builder: (context, loginSnapshot) {
-              if (loginSnapshot.connectionState == ConnectionState.done && loginSnapshot.hasData) {
-                return loginSnapshot.data!;
-              }
-              return const Scaffold(body: Center(child: CircularProgressIndicator(color: Color(0xFF1E88E5))));
-            },
-          );
+    return FutureBuilder<Widget>(
+      future: _checkLoginStatus(),
+      builder: (context, loginSnapshot) {
+        if (loginSnapshot.connectionState == ConnectionState.done && loginSnapshot.hasData) {
+          return loginSnapshot.data!;
         }
         return const Scaffold(body: Center(child: CircularProgressIndicator(color: Color(0xFF1E88E5))));
       },
@@ -528,6 +512,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
   @override
   void initState() {
     super.initState();
+    _setupFCM();
     FirebaseFirestore.instance.collection('users').doc(widget.myPhone).snapshots().listen((snapshot) {
       if (snapshot.exists && snapshot.data() != null) {
         final activeToken = snapshot.data()!['activeSessionToken'] as String?;
@@ -549,6 +534,15 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
         }
       }
     });
+  }
+
+  void _setupFCM() async {
+    FirebaseMessaging messaging = FirebaseMessaging.instance;
+    await messaging.requestPermission(alert: true, badge: true, sound: true);
+    String? fcmToken = await messaging.getToken();
+    if (fcmToken != null) {
+      await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({'fcmToken': fcmToken});
+    }
   }
 
   @override
@@ -597,7 +591,6 @@ void openContactsChat(BuildContext context, String myPhone) async {
   for (var doc in usersSnapshot.docs) {
     final data = doc.data();
     final p = data['phone'] as String?;
-    final n = data['name'] as String? ?? 'VibeNet User';
     if (p != null && p.isNotEmpty) {
       final cleanDbPhone = p.replaceAll(RegExp(r'\D'), '');
       if (cleanDbPhone.length >= 10) {
@@ -713,7 +706,7 @@ class DashboardHomeBody extends StatefulWidget {
 class _DashboardHomeBodyState extends State<DashboardHomeBody> {
   String _weatherCity = 'Kolkata';
   String _weatherTemp = '28°C';
-  IconData _weatherIcon = Icons.wb_sunny_rounded;
+  final IconData _weatherIcon = Icons.wb_sunny_rounded;
   String _myPhotoUrl = '';
 
   @override
