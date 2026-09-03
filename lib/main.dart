@@ -13,6 +13,14 @@ void main() {
   runApp(const VibeNetApp());
 }
 
+// নম্বর হাইড করার সিকিউরিটি ফাংশন (যাতে কেউ ফুল নম্বর দেখতে না পায়)
+String maskPhoneNumber(String phone) {
+  if (phone.length > 6) {
+    return '${phone.substring(0, 3)}••••••${phone.substring(phone.length - 4)}';
+  }
+  return '••••••••';
+}
+
 final ValueNotifier<String> appLanguage = ValueNotifier<String>('en');
 
 final Map<String, Map<String, String>> localizedStrings = {
@@ -73,10 +81,7 @@ void showLanguageSelector(BuildContext context) {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text(
-            'Choose Language / ভাষা নির্বাচন করুন',
-            style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xFF1E88E5)),
-          ),
+          const Text('Choose Language / ভাষা নির্বাচন করুন', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xFF1E88E5))),
           const SizedBox(height: 12),
           ListTile(
             leading: const Icon(Icons.language),
@@ -184,21 +189,16 @@ class _FirebaseInitWrapperState extends State<FirebaseInitWrapper> {
               if (loginSnapshot.connectionState == ConnectionState.done && loginSnapshot.hasData) {
                 return loginSnapshot.data!;
               }
-              return const Scaffold(
-                body: Center(child: CircularProgressIndicator(color: Color(0xFF1E88E5))),
-              );
+              return const Scaffold(body: Center(child: CircularProgressIndicator(color: Color(0xFF1E88E5))));
             },
           );
         }
-        return const Scaffold(
-          body: Center(child: CircularProgressIndicator(color: Color(0xFF1E88E5))),
-        );
+        return const Scaffold(body: Center(child: CircularProgressIndicator(color: Color(0xFF1E88E5))));
       },
     );
   }
 }
 
-// --- ১. Terms & Conditions Screen ---
 class WelcomeTermsScreen extends StatelessWidget {
   const WelcomeTermsScreen({super.key});
 
@@ -227,10 +227,7 @@ class WelcomeTermsScreen extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                tr('welcome'),
-                style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Color(0xFF0F4C81)),
-              ),
+              Text(tr('welcome'), style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Color(0xFF0F4C81))),
               Column(
                 children: [
                   Container(
@@ -238,35 +235,25 @@ class WelcomeTermsScreen extends StatelessWidget {
                     height: 170,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        colors: [const Color(0xFF1E88E5).withOpacity(0.2), const Color(0xFF42A5F5).withOpacity(0.1)],
-                      ),
+                      gradient: LinearGradient(colors: [const Color(0xFF1E88E5).withOpacity(0.2), const Color(0xFF42A5F5).withOpacity(0.1)]),
                     ),
                     child: const Icon(Icons.forum_rounded, size: 85, color: Color(0xFF1E88E5)),
                   ),
                   const SizedBox(height: 28),
-                  Text(
-                    tr('terms_desc'),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.grey, fontSize: 14),
-                  ),
+                  Text(tr('terms_desc'), textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey, fontSize: 14)),
                 ],
               ),
               Column(
                 children: [
                   ElevatedButton(
                     onPressed: () {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(builder: (context) => const LoginScreen()),
-                      );
+                      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LoginScreen()));
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF1E88E5),
                       foregroundColor: Colors.white,
                       minimumSize: const Size.fromHeight(50),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      elevation: 1,
                     ),
                     child: Text(tr('agree_continue'), style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)),
                   ),
@@ -282,7 +269,6 @@ class WelcomeTermsScreen extends StatelessWidget {
   }
 }
 
-// --- ২. কান্ট্রি সিলেক্ট ও ফোন নম্বর লগইন স্ক্রিন ---
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -321,9 +307,7 @@ class _LoginScreenState extends State<LoginScreen> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('invalid_phone'))));
       return;
     }
-
     setState(() => _isLoading = true);
-
     Future.delayed(const Duration(milliseconds: 500), () {
       if (mounted) {
         setState(() {
@@ -331,9 +315,6 @@ class _LoginScreenState extends State<LoginScreen> {
           _isOtpSent = true;
           _isLoading = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(appLanguage.value == 'bn' ? 'OTP পাঠানো হয়েছে! কোড দিন: 123456' : 'OTP sent! Use code: 123456')),
-        );
       }
     });
   }
@@ -344,24 +325,16 @@ class _LoginScreenState extends State<LoginScreen> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('wrong_otp'))));
       return;
     }
-
     setState(() => _isLoading = true);
 
     try {
-      UserCredential userCred;
-      if (FirebaseAuth.instance.currentUser == null) {
-        userCred = await FirebaseAuth.instance.signInAnonymously();
-      } else {
-        userCred = await FirebaseAuth.instance.signInAnonymously();
-      }
-
-      final uid = userCred.user?.uid ?? FirebaseAuth.instance.currentUser!.uid;
+      UserCredential userCred = await FirebaseAuth.instance.signInAnonymously();
+      final uid = userCred.user!.uid;
       final newSessionToken = 'session_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(999999)}';
 
       await FirebaseFirestore.instance.collection('users').doc(uid).set({
         'phone': _fullPhoneNumber,
         'sessionToken': newSessionToken,
-        'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
       await FirebaseFirestore.instance.collection('users').doc(_fullPhoneNumber).set({
@@ -370,24 +343,11 @@ class _LoginScreenState extends State<LoginScreen> {
       }, SetOptions(merge: true));
 
       if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ProfilePhotoStepScreen(
-              myPhone: _fullPhoneNumber,
-              sessionToken: newSessionToken,
-            ),
-          ),
-        );
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => ProfilePhotoStepScreen(myPhone: _fullPhoneNumber, sessionToken: newSessionToken)));
       }
     } catch (_) {
       if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ProfilePhotoStepScreen(myPhone: _fullPhoneNumber, sessionToken: ''),
-          ),
-        );
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => ProfilePhotoStepScreen(myPhone: _fullPhoneNumber, sessionToken: '')));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -404,54 +364,23 @@ class _LoginScreenState extends State<LoginScreen> {
         backgroundColor: Colors.white,
         foregroundColor: const Color(0xFF1E88E5),
         elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.translate_rounded, color: Color(0xFF1E88E5)),
-            tooltip: tr('change_language'),
-            onPressed: () => showLanguageSelector(context),
-          ),
-        ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+        padding: const EdgeInsets.all(24.0),
         child: Column(
           children: [
-            Text(
-              tr('verify_desc'),
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.black87, fontSize: 14),
-            ),
+            Text(tr('verify_desc'), textAlign: TextAlign.center, style: const TextStyle(color: Colors.black87, fontSize: 14)),
             const SizedBox(height: 28),
-
             DropdownButtonHideUnderline(
               child: DropdownButton<String>(
                 value: _selectedCountry,
                 isExpanded: true,
-                icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF1E88E5)),
-                onChanged: _isOtpSent
-                    ? null
-                    : (String? newValue) {
-                        if (newValue != null) {
-                          setState(() {
-                            _selectedCountry = newValue;
-                            _selectedCountryCode = _countries.firstWhere((c) => c['name'] == newValue)['code']!;
-                          });
-                        }
-                      },
-                items: _countries.map<DropdownMenuItem<String>>((Map<String, String> country) {
-                  return DropdownMenuItem<String>(
-                    value: country['name'],
-                    child: Center(
-                      child: Text(country['name']!, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-                    ),
-                  );
-                }).toList(),
+                onChanged: _isOtpSent ? null : (v) => setState(() => _selectedCountry = v!),
+                items: _countries.map((c) => DropdownMenuItem(value: c['name'], child: Center(child: Text(c['name']!)))).toList(),
               ),
             ),
             Container(height: 1.5, color: const Color(0xFF1E88E5)),
-
             const SizedBox(height: 16),
-
             Row(
               children: [
                 Container(
@@ -459,7 +388,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFF1E88E5), width: 1.5))),
                   alignment: Alignment.center,
-                  child: Text(_selectedCountryCode, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  child: Text(_selectedCountryCode, style: const TextStyle(fontWeight: FontWeight.bold)),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -467,62 +396,19 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: _phoneController,
                     keyboardType: TextInputType.phone,
                     enabled: !_isOtpSent,
-                    decoration: InputDecoration(
-                      hintText: tr('phone_hint'),
-                      enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF1E88E5), width: 1.5)),
-                      focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF1E88E5), width: 2)),
-                    ),
+                    decoration: InputDecoration(hintText: tr('phone_hint')),
                   ),
                 ),
               ],
             ),
-
             const SizedBox(height: 32),
-
             if (_isOtpSent) ...[
-              TextField(
-                controller: _otpController,
-                keyboardType: TextInputType.number,
-                textAlign: TextAlign.center,
-                decoration: InputDecoration(labelText: tr('enter_code'), border: const OutlineInputBorder()),
-              ),
+              TextField(controller: _otpController, keyboardType: TextInputType.number, textAlign: TextAlign.center, decoration: InputDecoration(labelText: tr('enter_code'))),
               const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: _isLoading ? null : _verifyOtp,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1E88E5),
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size.fromHeight(48),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                child: _isLoading
-                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : Text(tr('verify'), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-              ),
+              ElevatedButton(onPressed: _isLoading ? null : _verifyOtp, child: Text(tr('verify'))),
             ] else ...[
-              ElevatedButton(
-                onPressed: _isLoading ? null : _sendOtp,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1E88E5),
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size.fromHeight(48),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                child: _isLoading
-                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : Text(tr('next'), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-              ),
+              ElevatedButton(onPressed: _isLoading ? null : _sendOtp, child: Text(tr('next'))),
             ],
-            const SizedBox(height: 24),
-
-            TextButton.icon(
-              onPressed: () => showLanguageSelector(context),
-              icon: const Icon(Icons.language, size: 16, color: Colors.grey),
-              label: Text(
-                '${tr('change_language')}: ${appLanguage.value == 'bn' ? 'বাংলা' : (appLanguage.value == 'hi' ? 'हिन्दी' : 'English')}',
-                style: const TextStyle(color: Colors.grey, fontSize: 13),
-              ),
-            ),
           ],
         ),
       ),
@@ -530,7 +416,6 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
-// --- ৩. প্রোফাইল ফটো স্ক্রিন ---
 class ProfilePhotoStepScreen extends StatefulWidget {
   final String myPhone;
   final String sessionToken;
@@ -541,137 +426,39 @@ class ProfilePhotoStepScreen extends StatefulWidget {
 }
 
 class _ProfilePhotoStepScreenState extends State<ProfilePhotoStepScreen> {
-  final List<String> _avatarChoices = [
+  final List<String> _avatars = [
     'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
     'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200',
-    'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200',
-    'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200',
   ];
-  String? _selectedPhoto;
+  String? _photo;
 
-  void _choosePhotoDialog() {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.all(20),
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Profile Photo')),
+      body: Center(
         child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text('Choose Profile Photo', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 16),
-            SizedBox(
-              height: 80,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: _avatarChoices.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 14),
-                itemBuilder: (context, i) {
-                  return InkWell(
-                    onTap: () {
-                      setState(() => _selectedPhoto = _avatarChoices[i]);
-                      Navigator.pop(ctx);
-                    },
-                    child: CircleAvatar(radius: 35, backgroundImage: NetworkImage(_avatarChoices[i])),
-                  );
-                },
-              ),
+            CircleAvatar(radius: 60, backgroundImage: _photo != null ? NetworkImage(_photo!) : null, child: _photo == null ? const Icon(Icons.person, size: 60) : null),
+            const SizedBox(height: 20),
+            ElevatedButton(onPressed: () => setState(() => _photo = _avatars[0]), child: const Text('Select Avatar')),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => ProfileNameStepScreen(myPhone: widget.myPhone, photoUrl: _photo, sessionToken: widget.sessionToken))),
+              child: const Text('Next'),
             ),
           ],
         ),
       ),
     );
   }
-
-  void _proceedToNameStep(String? photo) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ProfileNameStepScreen(
-          myPhone: widget.myPhone,
-          photoUrl: photo,
-          sessionToken: widget.sessionToken,
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text('Profile Photo', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-        centerTitle: true,
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF1E88E5),
-        elevation: 0,
-        actions: [
-          TextButton(
-            onPressed: () => _proceedToNameStep(null),
-            child: const Text('Skip', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey)),
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 24.0),
-          child: Column(
-            children: [
-              const Text('Add a profile photo so your friends can recognize you on VibeNet.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey, fontSize: 14)),
-              const Spacer(),
-              InkWell(
-                onTap: _choosePhotoDialog,
-                borderRadius: BorderRadius.circular(80),
-                child: Stack(
-                  children: [
-                    CircleAvatar(
-                      radius: 75,
-                      backgroundColor: Colors.grey.shade200,
-                      backgroundImage: _selectedPhoto != null ? NetworkImage(_selectedPhoto!) : null,
-                      child: _selectedPhoto == null ? const Icon(Icons.person, size: 85, color: Colors.grey) : null,
-                    ),
-                    Positioned(
-                      bottom: 4,
-                      right: 4,
-                      child: Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: const BoxDecoration(color: Color(0xFF1E88E5), shape: BoxShape.circle),
-                        child: const Icon(Icons.camera_alt, color: Colors.white, size: 24),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextButton.icon(
-                onPressed: _choosePhotoDialog,
-                icon: const Icon(Icons.photo_library, size: 18),
-                label: Text(_selectedPhoto == null ? 'Choose photo' : 'Change photo', style: const TextStyle(fontWeight: FontWeight.w600)),
-              ),
-              const Spacer(),
-              ElevatedButton(
-                onPressed: () => _proceedToNameStep(_selectedPhoto),
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E88E5), foregroundColor: Colors.white, minimumSize: const Size.fromHeight(48), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-                child: Text(_selectedPhoto != null ? 'Next' : 'Continue without photo', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              ),
-              const SizedBox(height: 10),
-              TextButton(onPressed: () => _proceedToNameStep(null), child: const Text('Skip for now', style: TextStyle(color: Colors.grey, fontSize: 14))),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
 
-// --- ৪. নাম লেখার স্ক্রিন ---
 class ProfileNameStepScreen extends StatefulWidget {
   final String myPhone;
   final String? photoUrl;
   final String sessionToken;
-
   const ProfileNameStepScreen({super.key, required this.myPhone, this.photoUrl, required this.sessionToken});
 
   @override
@@ -679,102 +466,36 @@ class ProfileNameStepScreen extends StatefulWidget {
 }
 
 class _ProfileNameStepScreenState extends State<ProfileNameStepScreen> {
-  final TextEditingController _nameController = TextEditingController();
-  bool _isSaving = false;
+  final TextEditingController _nameCtrl = TextEditingController();
 
-  void _finishProfileSetup() async {
-    final name = _nameController.text.trim();
-    if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('অনুগ্রহ করে আপনার নামটি লিখুন')));
-      return;
-    }
-
-    setState(() => _isSaving = true);
-
-    try {
-      final uid = FirebaseAuth.instance.currentUser?.uid;
-      final userData = {
-        'phone': widget.myPhone,
-        'name': name,
-        'photoUrl': widget.photoUrl ?? '',
-        'about': 'Hey there! I am using VibeNet.',
-        'sessionToken': widget.sessionToken,
-        'lastSeen': 'Everyone',
-        'readReceipts': true,
-        'createdAt': FieldValue.serverTimestamp(),
-      };
-
-      if (uid != null) {
-        await FirebaseFirestore.instance.collection('users').doc(uid).set(userData, SetOptions(merge: true));
-      }
-      await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).set(userData, SetOptions(merge: true));
-
-      if (mounted) {
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(
-            builder: (context) => MainDashboardScreen(
-              myPhone: widget.myPhone,
-              currentSessionToken: widget.sessionToken,
-            ),
-          ),
-          (route) => false,
-        );
-      }
-    } catch (_) {
-      if (mounted) {
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(
-            builder: (context) => MainDashboardScreen(myPhone: widget.myPhone, currentSessionToken: widget.sessionToken),
-          ),
-          (route) => false,
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
+  void _finish() async {
+    final name = _nameCtrl.text.trim();
+    if (name.isEmpty) return;
+    final data = {'phone': widget.myPhone, 'name': name, 'photoUrl': widget.photoUrl ?? '', 'sessionToken': widget.sessionToken};
+    await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).set(data, SetOptions(merge: true));
+    if (mounted) {
+      Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (c) => MainDashboardScreen(myPhone: widget.myPhone, currentSessionToken: widget.sessionToken)), (r) => false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(title: const Text('Enter your name', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)), centerTitle: true, backgroundColor: Colors.white, foregroundColor: const Color(0xFF1E88E5), elevation: 0),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 24.0),
-          child: Column(
-            children: [
-              CircleAvatar(
-                radius: 40,
-                backgroundColor: Colors.grey.shade200,
-                backgroundImage: widget.photoUrl != null && widget.photoUrl!.isNotEmpty ? NetworkImage(widget.photoUrl!) : null,
-                child: (widget.photoUrl == null || widget.photoUrl!.isEmpty) ? const Icon(Icons.person, size: 45, color: Colors.grey) : null,
-              ),
-              const SizedBox(height: 20),
-              const Text('Please provide your name for your profile', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey, fontSize: 14)),
-              const SizedBox(height: 36),
-              TextField(
-                controller: _nameController,
-                autofocus: true,
-                decoration: const InputDecoration(hintText: 'Type your name here', border: OutlineInputBorder()),
-              ),
-              const Spacer(),
-              ElevatedButton(
-                onPressed: _isSaving ? null : _finishProfileSetup,
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E88E5), foregroundColor: Colors.white, minimumSize: const Size.fromHeight(48), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-                child: _isSaving ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Text('Finish', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              ),
-            ],
-          ),
+      appBar: AppBar(title: const Text('Enter Name')),
+      body: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          children: [
+            TextField(controller: _nameCtrl, decoration: const InputDecoration(labelText: 'Your Name')),
+            const SizedBox(height: 20),
+            ElevatedButton(onPressed: _finish, child: const Text('Finish')),
+          ],
         ),
       ),
     );
   }
 }
 
-// --- ৫. ড্যাশবোর্ড স্ক্রিন ---
 class MainDashboardScreen extends StatefulWidget {
   final String myPhone;
   final String currentSessionToken;
@@ -790,10 +511,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
   @override
   void initState() {
     super.initState();
-    _listenToSessionChanges();
-  }
-
-  void _listenToSessionChanges() {
     FirebaseFirestore.instance.collection('users').doc(widget.myPhone).snapshots().listen((snapshot) {
       if (snapshot.exists && snapshot.data() != null) {
         final activeToken = snapshot.data()!['activeSessionToken'] as String?;
@@ -805,18 +522,9 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
               barrierDismissible: false,
               builder: (ctx) => AlertDialog(
                 title: const Text('Logged Out!'),
-                content: const Text('আপনার এই মোবাইল নম্বর দিয়ে অন্য আরেকটি ডিভাইসে লগইন করা হয়েছে। নিরাপত্তা কারণে এই ডিভাইস থেকে লগআউট করা হলো।'),
+                content: const Text('অন্য ডিভাইসে লগইন করার কারণে এই ডিভাইস থেকে লগআউট করা হলো।'),
                 actions: [
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.pushAndRemoveUntil(
-                        context,
-                        MaterialPageRoute(builder: (c) => const WelcomeTermsScreen()),
-                        (r) => false,
-                      );
-                    },
-                    child: const Text('OK'),
-                  )
+                  ElevatedButton(onPressed: () => Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (c) => const WelcomeTermsScreen()), (r) => false), child: const Text('OK'))
                 ],
               ),
             );
@@ -829,629 +537,171 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _currentIndex == 4
-          ? WhatsAppProfileScreen(myPhone: widget.myPhone)
-          : DashboardHomeBody(myPhone: widget.myPhone),
-
+      body: _currentIndex == 4 ? WhatsAppProfileScreen(myPhone: widget.myPhone) : DashboardHomeBody(myPhone: widget.myPhone),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (i) => setState(() => _currentIndex = i),
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: const Color(0xFF1E88E5),
-        unselectedItemColor: Colors.grey,
-        selectedFontSize: 11,
-        unselectedFontSize: 11,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.chat_bubble), label: 'Chats'),
           BottomNavigationBarItem(icon: Icon(Icons.feed_outlined), label: 'Feed'),
           BottomNavigationBarItem(icon: Icon(Icons.add_circle_outline, size: 28), label: 'Create'),
           BottomNavigationBarItem(icon: Icon(Icons.video_library_outlined), label: 'Reels'),
-          BottomNavigationBarItem(icon: Icon(Icons.account_circle_outlined), label: 'Profile / Pay'),
+          BottomNavigationBarItem(icon: Icon(Icons.account_circle_outlined), label: 'Profile'),
         ],
       ),
     );
   }
 }
 
-// --- ড্যাশবোর্ড বডি ---
-class DashboardHomeBody extends StatefulWidget {
+class DashboardHomeBody extends StatelessWidget {
   final String myPhone;
   const DashboardHomeBody({super.key, required this.myPhone});
 
-  @override
-  State<DashboardHomeBody> createState() => _DashboardHomeBodyState();
-}
-
-class _DashboardHomeBodyState extends State<DashboardHomeBody> {
-  String _myPhoto = '';
-  String _myName = 'You';
-
-  String _weatherCity = 'Detecting...';
-  String _weatherTemp = '--°C';
-  IconData _weatherIcon = Icons.wb_sunny_rounded;
-  bool _isLoadingWeather = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadMyInfo();
-    _fetchLiveWeather();
-  }
-
-  Future<void> _fetchLiveWeather() async {
-    setState(() => _isLoadingWeather = true);
-    try {
-      final client = HttpClient();
-      client.connectionTimeout = const Duration(seconds: 8);
-      final request = await client.getUrl(Uri.parse('https://wttr.in/?format=j1'));
-      final response = await request.close();
-
-      if (response.statusCode == 200) {
-        final body = await response.transform(utf8.decoder).join();
-        final data = jsonDecode(body) as Map<String, dynamic>;
-        final current = data['current_condition']?[0];
-        final area = data['nearest_area']?[0];
-
-        final temp = current?['temp_C'] ?? '28';
-        final city = area?['areaName']?[0]?['value'] ?? 'Local';
-        final desc = (current?['weatherDesc']?[0]?['value'] ?? '').toString().toLowerCase();
-
-        IconData icon = Icons.wb_sunny_rounded;
-        if (desc.contains('rain') || desc.contains('drizzle')) {
-          icon = Icons.grain_rounded;
-        } else if (desc.contains('cloud') || desc.contains('overcast')) {
-          icon = Icons.cloud_rounded;
-        }
-
-        if (mounted) {
-          setState(() {
-            _weatherCity = city;
-            _weatherTemp = '$temp°C';
-            _weatherIcon = icon;
-            _isLoadingWeather = false;
-          });
-        }
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() {
-          _weatherCity = 'Kolkata';
-          _weatherTemp = '28°C';
-          _isLoadingWeather = false;
-        });
-      }
-    }
-  }
-
-  void _loadMyInfo() async {
-    final doc = await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).get();
-    if (doc.exists && doc.data() != null) {
-      setState(() {
-        _myPhoto = doc.data()!['photoUrl'] ?? '';
-        _myName = doc.data()!['name'] ?? 'You';
-      });
-    }
-  }
-
-  void _openContactsOnlyChat() async {
-    final status = await Permission.contacts.request();
-    if (!status.isGranted) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('কনট্যাক্ট অ্যাক্সেসের অনুমতি দিন')),
-        );
-      }
-      return;
-    }
-
-    final phoneContacts = await FlutterContacts.getContacts(withProperties: true, withPhoto: false);
-    final usersSnapshot = await FirebaseFirestore.instance.collection('users').get();
-    final registeredPhones = <String, String>{};
-
-    for (var doc in usersSnapshot.docs) {
-      final data = doc.data();
-      final p = data['phone'] as String?;
-      final n = data['name'] as String? ?? 'VibeNet User';
-      if (p != null) registeredPhones[p] = n;
-    }
-
-    final List<Map<String, String>> matchedContacts = [];
-
-    for (var contact in phoneContacts) {
-      for (var phoneObj in contact.phones) {
-        var cleanNumber = phoneObj.number.replaceAll(RegExp(r'\s+|-|\(|\)'), '');
-        if (!cleanNumber.startsWith('+')) {
-          cleanNumber = '+91$cleanNumber';
-        }
-
-        if (registeredPhones.containsKey(cleanNumber) && cleanNumber != widget.myPhone) {
-          matchedContacts.add({
-            'name': contact.displayName.isNotEmpty ? contact.displayName : registeredPhones[cleanNumber]!,
-            'phone': cleanNumber,
-          });
-          break;
-        }
-      }
-    }
-
-    if (!mounted) return;
-
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Select Contact (সেভ থাকা নম্বর)',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E88E5)),
-            ),
-            const SizedBox(height: 10),
-            if (matchedContacts.isEmpty)
-              const Expanded(
-                child: Center(
-                  child: Text(
-                    'আপনার ফোনে সেভ থাকা কোনো বন্ধু এখনো VibeNet ইনস্টল করেনি।',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                ),
-              )
-            else
-              Expanded(
-                child: ListView.separated(
-                  itemCount: matchedContacts.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
-                  itemBuilder: (context, i) {
-                    final c = matchedContacts[i];
-                    return ListTile(
-                      leading: const CircleAvatar(backgroundColor: Color(0xFF1E88E5), child: Icon(Icons.person, color: Colors.white)),
-                      title: Text(c['name']!, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      subtitle: Text(c['phone']!),
-                      onTap: () {
-                        Navigator.pop(ctx);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => ConversationScreen(
-                              myPhone: widget.myPhone,
-                              receiverPhone: c['phone']!,
-                              receiverName: c['name']!,
-                            ),
-                          ),
-                        );
-                      },
-                    );
-                  },
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
+  void _openGlobalSearch(BuildContext context) {
+    showSearch(context: context, delegate: GlobalUserSearchDelegate(myPhone: myPhone));
   }
 
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              margin: const EdgeInsets.all(16),
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [Color(0xFF1976D2), Color(0xFF42A5F5)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                borderRadius: BorderRadius.circular(22),
-                boxShadow: [BoxShadow(color: const Color(0xFF1976D2).withOpacity(0.35), blurRadius: 10, offset: const Offset(0, 4))],
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 18,
-                        backgroundColor: Colors.white24,
-                        backgroundImage: _myPhoto.isNotEmpty ? NetworkImage(_myPhoto) : null,
-                        child: _myPhoto.isEmpty ? const Icon(Icons.person, color: Colors.white, size: 20) : null,
-                      ),
-                      const SizedBox(width: 12),
-                      const Expanded(child: Text('VibeNet', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold))),
-                      IconButton(icon: const Icon(Icons.refresh, color: Colors.white), onPressed: _fetchLiveWeather),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    decoration: BoxDecoration(color: Colors.white.withOpacity(0.18), borderRadius: BorderRadius.circular(16)),
-                    child: Row(
-                      children: [
-                        Icon(_weatherIcon, color: Colors.amberAccent, size: 36),
-                        const SizedBox(width: 14),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(_weatherTemp, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-                            Text(_weatherCity, style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500)),
-                          ],
-                        ),
-                        const Spacer(),
-                        const Icon(Icons.location_on, color: Colors.white, size: 20),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 6.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('CHATS (SAVED CONTACTS)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black54, letterSpacing: 1)),
-                  InkWell(
-                    onTap: _openContactsOnlyChat,
-                    child: const Icon(Icons.person_add_alt_1, color: Color(0xFF1E88E5), size: 24),
-                  ),
-                ],
-              ),
-            ),
-
-            StreamBuilder<QuerySnapshot>(
+      child: Column(
+        children: [
+          AppBar(
+            title: const Text('VibeNet'),
+            actions: [
+              IconButton(icon: const Icon(Icons.search), onPressed: () => _openGlobalSearch(context)),
+            ],
+          ),
+          Expanded(
+            child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance.collection('chats').orderBy('timestamp', descending: true).snapshots(),
               builder: (context, snapshot) {
                 final Set<String> partners = {};
-                final Map<String, String> lastMsgs = {};
                 if (snapshot.hasData) {
                   for (var d in snapshot.data!.docs) {
                     final data = d.data() as Map<String, dynamic>;
-                    final s = data['sender'] as String?;
-                    final r = data['receiver'] as String?;
-                    final type = data['type'] as String? ?? 'text';
-                    var txt = '';
-                    if (data['isDeleted'] == true) {
-                      txt = '🚫 This message was deleted';
-                    } else if (type == 'image') {
-                      txt = '📷 Photo';
-                    } else if (type == 'document') {
-                      txt = '📄 Document';
-                    } else if (type == 'location') {
-                      txt = '📍 Live Location';
-                    } else {
-                      txt = data['text'] as String? ?? '';
-                    }
-
-                    final deletedFor = List<String>.from(data['deletedFor'] ?? []);
-
-                    if (!deletedFor.contains(widget.myPhone)) {
-                      if (s == widget.myPhone && r != null) {
-                        partners.add(r);
-                        lastMsgs.putIfAbsent(r, () => txt);
-                      } else if (r == widget.myPhone && s != null) {
-                        partners.add(s);
-                        lastMsgs.putIfAbsent(s, () => txt);
-                      }
-                    }
+                    final s = data['sender'];
+                    final r = data['receiver'];
+                    if (s == myPhone && r != null) partners.add(r);
+                    else if (r == myPhone && s != null) partners.add(s);
                   }
                 }
-
                 final list = partners.toList();
-
-                if (list.isEmpty) {
-                  return const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(32.0),
-                      child: Text('কোনো চ্যাট নেই। সেভ থাকা বন্ধুদের সাথে চ্যাট করতে ডানদিকের আইকনে ট্যাপ করুন।', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
-                    ),
-                  );
-                }
-
-                return Column(
-                  children: list.map((phone) {
-                    return ListTile(
-                      leading: const CircleAvatar(backgroundColor: Color(0xFF1E88E5), child: Icon(Icons.person, color: Colors.white)),
-                      title: Text(phone, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      subtitle: Text(lastMsgs[phone] ?? 'Tap to chat', maxLines: 1),
-                      trailing: const Icon(Icons.chevron_right, color: Colors.grey),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (c) => ConversationScreen(myPhone: widget.myPhone, receiverPhone: phone, receiverName: phone),
-                          ),
+                if (list.isEmpty) return const Center(child: Text('কোনো চ্যাট নেই। সার্চ করে বা কন্ট্যাক্ট থেকে চ্যাট শুরু করুন।'));
+                return ListView.builder(
+                  itemCount: list.length,
+                  itemBuilder: (context, i) {
+                    final phone = list[i];
+                    return FutureBuilder<DocumentSnapshot>(
+                      future: FirebaseFirestore.instance.collection('users').doc(phone).get(),
+                      builder: (context, userSnap) {
+                        String name = phone;
+                        if (userSnap.hasData && userSnap.data!.exists) {
+                          name = userSnap.data!['name'] ?? phone;
+                        }
+                        return ListTile(
+                          leading: const CircleAvatar(child: Icon(Icons.person)),
+                          title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          subtitle: Text(maskPhoneNumber(phone)), // এখানে সম্পূর্ণ নম্বর হাইড করা থাকে
+                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (c) => ConversationScreen(myPhone: myPhone, receiverPhone: phone, receiverName: name))),
                         );
                       },
                     );
-                  }).toList(),
+                  },
                 );
               },
             ),
-            const SizedBox(height: 30),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
 
-// --- ৬. WhatsApp স্টাইল Settings & Profile Screen ---
-class WhatsAppProfileScreen extends StatefulWidget {
+// গ্লোবাল সার্চ (নাম দিয়ে সার্চ করলে নাম ও প্রোফাইল দেখাবে, কিন্তু নম্বর ঢেকে রাখবে)
+class GlobalUserSearchDelegate extends SearchDelegate<String> {
+  final String myPhone;
+  GlobalUserSearchDelegate({required this.myPhone});
+
+  @override
+  List<Widget>? buildActions(BuildContext context) => [IconButton(icon: const Icon(Icons.clear), onPressed: () => query = '')];
+
+  @override
+  Widget? buildLeading(BuildContext context) => IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => close(context, ''));
+
+  @override
+  Widget buildResults(BuildContext context) => _searchResult();
+
+  @override
+  Widget buildSuggestions(BuildContext context) => _searchResult();
+
+  Widget _searchResult() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance.collection('users').snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        final docs = snapshot.data!.docs.where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          final name = (data['name'] ?? '').toString().toLowerCase();
+          final phone = (data['phone'] ?? '').toString();
+          if (phone == myPhone) return false;
+          return name.contains(query.toLowerCase());
+        }).toList();
+
+        if (docs.isEmpty) return const Center(child: Text('কাউকে পাওয়া যায়নি'));
+
+        return ListView.builder(
+          itemCount: docs.length,
+          itemBuilder: (context, index) {
+            final data = docs[index].data() as Map<String, dynamic>;
+            final name = data['name'] ?? 'User';
+            final phone = data['phone'] ?? '';
+            final photo = data['photoUrl'] ?? '';
+
+            return ListTile(
+              leading: CircleAvatar(backgroundImage: photo.isNotEmpty ? NetworkImage(photo) : null, child: photo.isEmpty ? const Icon(Icons.person) : null),
+              title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: Text(maskPhoneNumber(phone)), // এখানেও ফুল নম্বর দেখাবে না
+              trailing: const Icon(Icons.chat_bubble_outline, color: Color(0xFF1E88E5)),
+              onTap: () {
+                close(context, phone);
+                Navigator.push(context, MaterialPageRoute(builder: (c) => ConversationScreen(myPhone: myPhone, receiverPhone: phone, receiverName: name)));
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class WhatsAppProfileScreen extends StatelessWidget {
   final String myPhone;
   const WhatsAppProfileScreen({super.key, required this.myPhone});
 
   @override
-  State<WhatsAppProfileScreen> createState() => _WhatsAppProfileScreenState();
-}
-
-class _WhatsAppProfileScreenState extends State<WhatsAppProfileScreen> {
-  String _userName = 'VibeNet User';
-  String _about = 'Hey there! I am using VibeNet.';
-  String _photoUrl = '';
-  String _lastSeenOption = 'Everyone';
-  bool _readReceipts = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadUserData();
-  }
-
-  void _loadUserData() async {
-    final doc = await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).get();
-    if (doc.exists && doc.data() != null) {
-      setState(() {
-        _userName = doc.data()!['name'] ?? _userName;
-        _about = doc.data()!['about'] ?? _about;
-        _photoUrl = doc.data()!['photoUrl'] ?? '';
-        _lastSeenOption = doc.data()!['lastSeen'] ?? 'Everyone';
-        _readReceipts = doc.data()!['readReceipts'] ?? true;
-      });
-    }
-  }
-
-  void _openPrivacySettings() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setModalState) => Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Privacy Settings', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1E88E5))),
-              const SizedBox(height: 16),
-              const Text('Who can see my personal info', style: TextStyle(fontSize: 13, color: Colors.grey, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Last seen and online'),
-                subtitle: Text(_lastSeenOption),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () {
-                  _showChoiceDialog('Last seen and online', ['Everyone', 'My contacts', 'Nobody'], _lastSeenOption, (val) {
-                    setState(() => _lastSeenOption = val);
-                    setModalState(() {});
-                    FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({'lastSeen': val});
-                  });
-                },
-              ),
-              const Divider(height: 1),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Profile photo'),
-                subtitle: const Text('Everyone'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () {},
-              ),
-              const Divider(height: 1),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('About'),
-                subtitle: const Text('Everyone'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () {},
-              ),
-              const Divider(height: 1),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Read receipts (Blue ticks)'),
-                subtitle: const Text('If turned off, you won\'t send or receive Read receipts.'),
-                value: _readReceipts,
-                activeColor: const Color(0xFF1E88E5),
-                onChanged: (val) {
-                  setState(() => _readReceipts = val);
-                  setModalState(() {});
-                  FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({'readReceipts': val});
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showChoiceDialog(String title, List<String> options, String currentVal, Function(String) onSelect) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(title),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: options.map((opt) {
-            return RadioListTile<String>(
-              title: Text(opt),
-              value: opt,
-              groupValue: currentVal,
-              activeColor: const Color(0xFF1E88E5),
-              onChanged: (v) {
-                if (v != null) {
-                  onSelect(v);
-                  Navigator.pop(ctx);
-                }
-              },
-            );
-          }).toList(),
-        ),
-      ),
-    );
-  }
-
-  void _editNameDialog() {
-    final ctrl = TextEditingController(text: _userName);
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Enter your name'),
-        content: TextField(controller: ctrl, decoration: const InputDecoration(hintText: 'Your Name')),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () async {
-              if (ctrl.text.trim().isNotEmpty) {
-                setState(() => _userName = ctrl.text.trim());
-                await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({'name': _userName});
-                final uid = FirebaseAuth.instance.currentUser?.uid;
-                if (uid != null) {
-                  await FirebaseFirestore.instance.collection('users').doc(uid).update({'name': _userName});
-                }
-                if (mounted) Navigator.pop(ctx);
-              }
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text('Settings', style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        elevation: 0,
-        actions: [
-          IconButton(icon: const Icon(Icons.search), onPressed: () {}),
-        ],
+      appBar: AppBar(title: const Text('Profile')),
+      body: Center(
+        child: OutlinedButton.icon(
+          onPressed: () async {
+            await FirebaseAuth.instance.signOut();
+            if (context.mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => const WelcomeTermsScreen()));
+          },
+          icon: const Icon(Icons.logout, color: Colors.red),
+          label: const Text('Log out', style: TextStyle(color: Colors.red)),
+        ),
       ),
-      body: ListView(
-        children: [
-          InkWell(
-            onTap: _editNameDialog,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              child: Row(
-                children: [
-                  Stack(
-                    children: [
-                      CircleAvatar(
-                        radius: 34,
-                        backgroundColor: Colors.grey.shade200,
-                        backgroundImage: _photoUrl.isNotEmpty ? NetworkImage(_photoUrl) : null,
-                        child: _photoUrl.isEmpty ? const Icon(Icons.person, size: 36, color: Colors.grey) : null,
-                      ),
-                      const Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: CircleAvatar(
-                          radius: 11,
-                          backgroundColor: Color(0xFF1E88E5),
-                          child: Icon(Icons.edit, size: 12, color: Colors.white),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(_userName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 4),
-                        Text(_about, style: const TextStyle(fontSize: 14, color: Colors.grey)),
-                        const SizedBox(height: 2),
-                        Text(widget.myPhone, style: const TextStyle(fontSize: 12, color: Colors.black54)),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.qr_code, color: Color(0xFF1E88E5)),
-                    onPressed: () {},
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const Divider(thickness: 1, height: 1),
-
-          _buildSettingsTile(icon: Icons.key_outlined, title: 'Account', subtitle: 'Security notifications, change number', onTap: () {}),
-          _buildSettingsTile(icon: Icons.lock_outline, title: 'Privacy', subtitle: 'Last seen, profile photo, read receipts', onTap: _openPrivacySettings),
-          _buildSettingsTile(icon: Icons.chat_outlined, title: 'Chats', subtitle: 'Theme, wallpapers, chat history', onTap: () {}),
-          _buildSettingsTile(icon: Icons.notifications_none_outlined, title: 'Notifications', subtitle: 'Message, group & call tones', onTap: () {}),
-          _buildSettingsTile(icon: Icons.data_usage_outlined, title: 'Storage and data', subtitle: 'Network usage, auto-download', onTap: () {}),
-          _buildSettingsTile(
-            icon: Icons.translate,
-            title: 'App Language / ভাষা',
-            subtitle: appLanguage.value == 'bn' ? 'বাংলা' : (appLanguage.value == 'hi' ? 'हिन्दी' : 'English'),
-            onTap: () => showLanguageSelector(context),
-          ),
-          _buildSettingsTile(icon: Icons.help_outline, title: 'Help', subtitle: 'Help center, contact us, privacy policy', onTap: () {}),
-          _buildSettingsTile(icon: Icons.group_add_outlined, title: 'Invite a friend', subtitle: 'Share VibeNet with friends', onTap: () {}),
-
-          const SizedBox(height: 20),
-
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20.0),
-            child: OutlinedButton.icon(
-              onPressed: () async {
-                await FirebaseAuth.instance.signOut();
-                if (context.mounted) {
-                  Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => const WelcomeTermsScreen()));
-                }
-              },
-              icon: const Icon(Icons.logout, color: Colors.red),
-              label: const Text('Log out', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Colors.red),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-            ),
-          ),
-          const SizedBox(height: 30),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSettingsTile({required IconData icon, required String title, required String subtitle, required VoidCallback onTap}) {
-    return ListTile(
-      leading: Icon(icon, color: Colors.grey.shade700),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
-      subtitle: Text(subtitle, style: const TextStyle(fontSize: 13, color: Colors.grey)),
-      onTap: onTap,
     );
   }
 }
 
-// --- ৭. মেসেজিং স্ক্রিন (ছবি, ডকুমেন্ট ও লাইভ লোকেশন সহ) ---
 class ConversationScreen extends StatefulWidget {
   final String myPhone;
   final String receiverPhone;
   final String receiverName;
-
   const ConversationScreen({super.key, required this.myPhone, required this.receiverPhone, required this.receiverName});
 
   @override
@@ -1459,221 +709,29 @@ class ConversationScreen extends StatefulWidget {
 }
 
 class _ConversationScreenState extends State<ConversationScreen> {
-  final TextEditingController _msgController = TextEditingController();
+  final TextEditingController _msgCtrl = TextEditingController();
 
-  // মেসেজ সেন্ড করার জেনেরিক মেথড
-  void _sendPayload({required String type, required String text, String? mediaUrl}) async {
+  void _send() async {
+    final text = _msgCtrl.text.trim();
+    if (text.isEmpty) return;
+    _msgCtrl.clear();
     await FirebaseFirestore.instance.collection('chats').add({
       'sender': widget.myPhone,
       'receiver': widget.receiverPhone,
-      'type': type, // 'text', 'image', 'document', 'location'
       'text': text,
-      'mediaUrl': mediaUrl ?? '',
-      'isDeleted': false,
-      'deletedFor': [],
       'timestamp': FieldValue.serverTimestamp(),
     });
-  }
-
-  void _sendTextMessage() {
-    final text = _msgController.text.trim();
-    if (text.isEmpty) return;
-    _msgController.clear();
-    _sendPayload(type: 'text', text: text);
-  }
-
-  // ছবি পাঠানোর পপআপ
-  void _pickAndSendPhoto() {
-    final List<String> samplePhotos = [
-      'https://images.unsplash.com/photo-1575936123452-b67c3203c357?w=400',
-      'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=400',
-      'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=400',
-    ];
-
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Select Photo to Send', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E88E5))),
-            const SizedBox(height: 14),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: samplePhotos.map((url) {
-                return InkWell(
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _sendPayload(type: 'image', text: 'Photo', mediaUrl: url);
-                  },
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: Image.network(url, width: 80, height: 80, fit: BoxFit.cover),
-                  ),
-                );
-              }).toList(),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ডকুমেন্ট পাঠানোর পদ্ধতি
-  void _sendDocument() {
-    _sendPayload(
-      type: 'document',
-      text: 'Project_Report_2026.pdf',
-      mediaUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
-    );
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Document sent!')),
-    );
-  }
-
-  // লাইভ লোকেশন পাঠানোর পদ্ধতি
-  void _sendLiveLocation() {
-    _sendPayload(
-      type: 'location',
-      text: 'Live Location: Burdwan, West Bengal (23.2324° N, 87.8615° E)',
-      mediaUrl: 'https://maps.google.com/?q=23.2324,87.8615',
-    );
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Live Location shared!')),
-    );
-  }
-
-  // Attachment বটমশিট (+ বাটনে চাপ দিলে যা খুলবে)
-  void _showAttachmentMenu() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        margin: const EdgeInsets.all(16),
-        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 4))],
-        ),
-        child: Wrap(
-          spacing: 24,
-          runSpacing: 20,
-          alignment: WrapAlignment.center,
-          children: [
-            _buildAttachOption(
-              icon: Icons.photo,
-              label: 'Gallery',
-              color: Colors.purple,
-              onTap: () {
-                Navigator.pop(ctx);
-                _pickAndSendPhoto();
-              },
-            ),
-            _buildAttachOption(
-              icon: Icons.insert_drive_file,
-              label: 'Document',
-              color: Colors.indigo,
-              onTap: () {
-                Navigator.pop(ctx);
-                _sendDocument();
-              },
-            ),
-            _buildAttachOption(
-              icon: Icons.location_on,
-              label: 'Location',
-              color: Colors.green,
-              onTap: () {
-                Navigator.pop(ctx);
-                _sendLiveLocation();
-              },
-            ),
-            _buildAttachOption(
-              icon: Icons.camera_alt,
-              label: 'Camera',
-              color: Colors.pink,
-              onTap: () {
-                Navigator.pop(ctx);
-                _pickAndSendPhoto();
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAttachOption({required IconData icon, required String label, required Color color, required VoidCallback onTap}) {
-    return InkWell(
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          CircleAvatar(
-            radius: 28,
-            backgroundColor: color,
-            child: Icon(icon, color: Colors.white, size: 28),
-          ),
-          const SizedBox(height: 8),
-          Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
-        ],
-      ),
-    );
-  }
-
-  // মেসেজ ডিলিট করার ডায়ালগ
-  void _showDeleteDialog(String docId, bool isMe, bool isAlreadyDeleted) {
-    if (isAlreadyDeleted) return;
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete Message?'),
-        content: const Text('Are you sure you want to delete this message?'),
-        actions: [
-          if (isMe)
-            TextButton(
-              onPressed: () async {
-                Navigator.pop(ctx);
-                await FirebaseFirestore.instance.collection('chats').doc(docId).update({
-                  'isDeleted': true,
-                  'text': '🚫 This message was deleted',
-                  'type': 'text',
-                });
-              },
-              child: const Text('Delete for everyone', style: TextStyle(color: Colors.red)),
-            ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              await FirebaseFirestore.instance.collection('chats').doc(docId).update({
-                'deletedFor': FieldValue.arrayUnion([widget.myPhone]),
-              });
-            },
-            child: const Text('Delete for me', style: TextStyle(color: Colors.red)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFECE5DD),
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(widget.receiverName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            Text(widget.receiverPhone, style: const TextStyle(fontSize: 12)),
+            Text(maskPhoneNumber(widget.receiverPhone), style: const TextStyle(fontSize: 11)), // চ্যাটের ভেতরেও নম্বর লুকানো থাকবে
           ],
         ),
         backgroundColor: const Color(0xFF1E88E5),
@@ -1686,125 +744,26 @@ class _ConversationScreenState extends State<ConversationScreen> {
               stream: FirebaseFirestore.instance.collection('chats').orderBy('timestamp', descending: true).snapshots(),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-                
                 final docs = snapshot.data!.docs.where((doc) {
                   final data = doc.data() as Map<String, dynamic>;
                   final s = data['sender'];
                   final r = data['receiver'];
-                  final deletedFor = List<String>.from(data['deletedFor'] ?? []);
-
-                  if (deletedFor.contains(widget.myPhone)) return false;
-
                   return (s == widget.myPhone && r == widget.receiverPhone) || (s == widget.receiverPhone && r == widget.myPhone);
                 }).toList();
 
                 return ListView.builder(
                   reverse: true,
                   itemCount: docs.length,
-                  padding: const EdgeInsets.symmetric(vertical: 8),
                   itemBuilder: (context, index) {
-                    final doc = docs[index];
-                    final data = doc.data() as Map<String, dynamic>;
+                    final data = docs[index].data() as Map<String, dynamic>;
                     final isMe = data['sender'] == widget.myPhone;
-                    final isDeleted = data['isDeleted'] == true;
-                    final type = data['type'] as String? ?? 'text';
-                    final mediaUrl = data['mediaUrl'] as String? ?? '';
-                    final text = data['text'] as String? ?? '';
-
                     return Align(
                       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-                      child: InkWell(
-                        onLongPress: () => _showDeleteDialog(doc.id, isMe, isDeleted),
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                          padding: const EdgeInsets.all(8),
-                          constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.78),
-                          decoration: BoxDecoration(
-                            color: isMe ? const Color(0xFFDCF8C6) : Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 1)],
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // ১. ফটো মেসেজ
-                              if (!isDeleted && type == 'image' && mediaUrl.isNotEmpty) ...[
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: Image.network(mediaUrl, width: 220, height: 180, fit: BoxFit.cover),
-                                ),
-                                const SizedBox(height: 4),
-                              ],
-
-                              // ২. ডকুমেন্ট মেসেজ
-                              if (!isDeleted && type == 'document') ...[
-                                Container(
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withOpacity(0.06),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(Icons.picture_as_pdf, color: Colors.redAccent, size: 32),
-                                      const SizedBox(width: 10),
-                                      Flexible(
-                                        child: Text(text, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                              ],
-
-                              // ৩. লাইভ লোকেশন মেসেজ
-                              if (!isDeleted && type == 'location') ...[
-                                Container(
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    color: Colors.green.shade50,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: Colors.green.shade200),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(Icons.my_location, color: Colors.green, size: 28),
-                                      const SizedBox(width: 10),
-                                      Flexible(
-                                        child: Text(text, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.green)),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                              ],
-
-                              // সাধারণ টেক্সট বা ডিলিটেড মেসেজ
-                              if (type == 'text' || isDeleted)
-                                Text(
-                                  text,
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontStyle: isDeleted ? FontStyle.italic : FontStyle.normal,
-                                    color: isDeleted ? Colors.black54 : Colors.black87,
-                                  ),
-                                ),
-
-                              // ব্লু টিক
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  const Spacer(),
-                                  if (isMe && !isDeleted)
-                                    const Icon(Icons.done_all, size: 15, color: Color(0xFF34B7F1)),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(color: isMe ? const Color(0xFFDCF8C6) : Colors.white, borderRadius: BorderRadius.circular(12)),
+                        child: Text(data['text'] ?? '', style: const TextStyle(fontSize: 15)),
                       ),
                     );
                   },
@@ -1812,52 +771,12 @@ class _ConversationScreenState extends State<ConversationScreen> {
               },
             ),
           ),
-
-          // মেসেজ ইনপুট বার (+ বাটন সহ)
-          Container(
-            padding: const EdgeInsets.all(8),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
             child: Row(
               children: [
-                Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(25),
-                      boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 1)],
-                    ),
-                    child: Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.add_circle, color: Color(0xFF1E88E5), size: 26),
-                          tooltip: 'Share Media',
-                          onPressed: _showAttachmentMenu,
-                        ),
-                        Expanded(
-                          child: TextField(
-                            controller: _msgController,
-                            decoration: const InputDecoration(
-                              hintText: 'Type a message...',
-                              border: InputBorder.none,
-                              contentPadding: EdgeInsets.symmetric(horizontal: 8),
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.camera_alt, color: Colors.grey),
-                          onPressed: _pickAndSendPhoto,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                CircleAvatar(
-                  backgroundColor: const Color(0xFF1E88E5),
-                  child: IconButton(
-                    icon: const Icon(Icons.send, color: Colors.white, size: 20),
-                    onPressed: _sendTextMessage,
-                  ),
-                ),
+                Expanded(child: TextField(controller: _msgCtrl, decoration: const InputDecoration(hintText: 'Type a message...'))),
+                IconButton(icon: const Icon(Icons.send, color: Color(0xFF1E88E5)), onPressed: _send),
               ],
             ),
           ),
