@@ -550,7 +550,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Top App Bar / Header section like the image
+            // Top App Bar / Header section
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
               child: Row(
@@ -631,7 +631,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
 
             const Divider(color: Colors.white24, height: 1),
 
-            // Chats List / Dynamic Body based on bottom nav
+            // Chats List / Profile Screen based on bottom nav
             Expanded(
               child: _currentIndex == 0
                   ? StreamBuilder<QuerySnapshot>(
@@ -658,11 +658,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                               ),
                               title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
                               subtitle: Text(maskPhoneNumber(phone), style: const TextStyle(color: Colors.white60)),
-                              trailing: Container(
-                                padding: const EdgeInsets.all(6),
-                                decoration: const BoxDecoration(color: Color(0xFF1E88E5), shape: BoxShape.circle),
-                                child: const Text('1', style: TextStyle(fontSize: 10, color: Colors.white)),
-                              ),
                               onTap: () {
                                 Navigator.push(context, MaterialPageRoute(builder: (c) => ConversationScreen(myPhone: widget.myPhone, receiverPhone: phone, receiverName: name)));
                               },
@@ -671,12 +666,14 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
                         );
                       },
                     )
-                  : Center(
-                      child: Text(
-                        _currentIndex == 1 ? 'News Feed Section' : (_currentIndex == 2 ? 'Create Post' : (_currentIndex == 3 ? 'Reels Section' : 'Profile & Pay')),
-                        style: const TextStyle(color: Colors.white70, fontSize: 16),
-                      ),
-                    ),
+                  : (_currentIndex == 4
+                      ? ProfileScreen(myPhone: widget.myPhone)
+                      : Center(
+                          child: Text(
+                            _currentIndex == 1 ? 'News Feed Section' : (_currentIndex == 2 ? 'Create Post' : 'Reels Section'),
+                            style: const TextStyle(color: Colors.white70, fontSize: 16),
+                          ),
+                        )),
             ),
           ],
         ),
@@ -719,6 +716,56 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> {
           const SizedBox(height: 4),
           Text(name, style: const TextStyle(fontSize: 11, color: Colors.white70)),
         ],
+      ),
+    );
+  }
+}
+
+class ProfileScreen extends StatelessWidget {
+  final String myPhone;
+  const ProfileScreen({super.key, required this.myPhone});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF121212),
+      body: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          children: [
+            const SizedBox(height: 20),
+            const CircleAvatar(
+              radius: 50,
+              backgroundColor: Color(0xFF1E88E5),
+              child: Icon(Icons.person, size: 50, color: Colors.white),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              maskPhoneNumber(myPhone),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+            const SizedBox(height: 30),
+            ListTile(
+              leading: const Icon(Icons.language, color: Color(0xFF1E88E5)),
+              title: const Text('Change Language / ভাষা পরিবর্তন', style: TextStyle(color: Colors.white)),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.white54),
+              onTap: () => showLanguageSelector(context),
+            ),
+            const Divider(color: Colors.white24),
+            ListTile(
+              leading: const Icon(Icons.logout, color: Colors.red),
+              title: const Text('Log Out', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+              onTap: () async {
+                await FirebaseAuth.instance.signOut();
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (c) => const WelcomeTermsScreen()),
+                  (r) => false,
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
