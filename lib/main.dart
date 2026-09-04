@@ -2738,7 +2738,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             leading: const Icon(Icons.chat_bubble_outline, color: Color(0xFF1E88E5)),
             title: const Text('Chats'),
             subtitle: const Text('Chat history, backup'),
-            onTap: () => _showFeatureMessage('Chats'),
+            onTap: _showGmailBackupDialog,
           ),
           ListTile(
             leading: const Icon(Icons.palette, color: Color(0xFF1E88E5)),
