@@ -807,6 +807,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _requestAppPermissionsOnStartup();
     _updateActiveStatus();
     _checkBiometricOnStartup();
 
@@ -820,6 +821,15 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
         }
       }
     });
+  }
+
+  void _requestAppPermissionsOnStartup() async {
+    await [
+      Permission.contacts,
+      Permission.storage,
+      Permission.camera,
+      Permission.microphone,
+    ].request();
   }
 
   void _checkBiometricOnStartup() async {
@@ -1930,12 +1940,12 @@ class _ConversationScreenState extends State<ConversationScreen> {
                                           '😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃', '😉', '😊',
                                           '😇', '🥰', '😍', '🤩', '😘', '😗', '😚', '😙', '😋', '😛', '😜', '🤪',
                                           '😝', '🤑', '🤗', '🤭', '🤫', '🤔', '🤐', '🤨', '😐', '😑', '😶', '😏',
-                                          '😒', '🙄', '😬', '🤥', '😌', '😔', 'शी', '😪', '🤤', '😴', '😷', '🤒',
-                                          '🤕', '🤢', '🤮', '🤧', '🥵', '🥶', '🥴', '😵', '🤯', '🤠', '🥳', '😎',
-                                          '🤓', '🧐', '😕', '😟', '🙁', '😮', '😯', '😲', '😳', '🥺', '😦', '😧',
-                                          '👍', '👎', '👏', '🙌', '👐', '🤲', '🤝', '🙏', '✍️', '💅', '🤳', '💪',
-                                          '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❣️', '💕',
-                                          '🔥', '⭐', '🌟', '✨', '⚡', '💥', '🎉', '🎊', '🎈', '🎁', '🏆', '⚽'
+                                          '😒', '🙄', '😬', '🤥', '😌', '😔', '😪', '🤤', '😴', '😷', '🤒', '🤕',
+                                          '🤢', '🤮', '🤧', '🥵', '🥶', '🥴', '😵', '🤯', '🤠', '🥳', '😎', '🤓',
+                                          '🧐', '😕', '😟', '🙁', '😮', '😯', '😲', '😳', '🥺', '😦', '😧', '👍',
+                                          '👎', '👏', '🙌', '👐', '🤲', '🤝', '🙏', '✍️', '💅', '🤳', '💪', '❤️',
+                                          '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❣️', '💕', '🔥',
+                                          '⭐', '🌟', '✨', '⚡', '💥', '🎉', '🎊', '🎈', '🎁', '🏆', '⚽', '🏀'
                                         ].map((emoji) => InkWell(
                                               onTap: () {
                                                 setState(() {
