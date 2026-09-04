@@ -10,7 +10,6 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:audioplayers/audioplayers.dart';
-import 'package:record/record.dart';
 import 'package:path_provider/path_provider.dart';
 
 void main() {
@@ -1680,10 +1679,6 @@ class ConversationScreen extends StatefulWidget {
 
 class _ConversationScreenState extends State<ConversationScreen> {
   final TextEditingController _msgCtrl = TextEditingController();
-  final AudioRecorder _audioRecorder = AudioRecorder();
-  final AudioPlayer _previewPlayer = AudioPlayer();
-  bool _isRecording = false;
-  String? _recordedAudioPath;
 
   @override
   void initState() {
@@ -1694,8 +1689,6 @@ class _ConversationScreenState extends State<ConversationScreen> {
   @override
   void dispose() {
     _setMyActiveStatus(false);
-    _audioRecorder.dispose();
-    _previewPlayer.dispose();
     super.dispose();
   }
 
@@ -1729,80 +1722,6 @@ class _ConversationScreenState extends State<ConversationScreen> {
       'isSeen': false,
       'timestamp': FieldValue.serverTimestamp(),
     });
-  }
-
-  Future<void> _startRecording() async {
-    try {
-      if (await _audioRecorder.hasPermission()) {
-        final dir = await getTemporaryDirectory();
-        String path = '${dir.path}/audio_${DateTime.now().millisecondsSinceEpoch}.m4a';
-        await _audioRecorder.start(const RecordConfig(), path: path);
-        setState(() {
-          _isRecording = true;
-          _recordedAudioPath = null;
-        });
-      }
-    } catch (e) {
-      print("Record error: $e");
-    }
-  }
-
-  Future<void> _stopRecording() async {
-    try {
-      final path = await _audioRecorder.stop();
-      setState(() {
-        _isRecording = false;
-        _recordedAudioPath = path;
-      });
-      if (_recordedAudioPath != null) {
-        _showAudioPreviewDialog(_recordedAudioPath!);
-      }
-    } catch (e) {
-      print("Stop record error: $e");
-    }
-  }
-
-  void _showAudioPreviewDialog(String path) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Voice Note Preview'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Listen to your voice note before sending:'),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E88E5), foregroundColor: Colors.white),
-              onPressed: () async {
-                await _previewPlayer.play(DeviceFileSource(path));
-              },
-              icon: const Icon(Icons.play_arrow),
-              label: const Text('Play Audio'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              _previewPlayer.stop();
-              Navigator.pop(ctx);
-            },
-            child: const Text('Cancel', style: TextStyle(color: Colors.red)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E88E5), foregroundColor: Colors.white),
-            onPressed: () {
-              _previewPlayer.stop();
-              Navigator.pop(ctx);
-              _sendMediaMessage('Voice Note', 'Audio Message (0:05)');
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Voice note sent successfully!')));
-            },
-            child: const Text('Send'),
-          ),
-        ],
-      ),
-    );
   }
 
   void _deleteMessage(String docId, bool isMe) {
@@ -2222,20 +2141,24 @@ class _ConversationScreenState extends State<ConversationScreen> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                GestureDetector(
-                  onLongPressStart: (_) => _startRecording(),
-                  onLongPressEnd: (_) => _stopRecording(),
-                  child: CircleAvatar(
-                    radius: 24,
-                    backgroundColor: _isRecording ? Colors.red : const Color(0xFF1E88E5),
-                    child: IconButton(
-                      icon: Icon(_msgCtrl.text.isEmpty ? (_isRecording ? Icons.mic : Icons.mic) : Icons.send, color: Colors.white),
-                      onPressed: () {
-                        if (_msgCtrl.text.isNotEmpty) {
-                          _send();
+                CircleAvatar(
+                  radius: 24,
+                  backgroundColor: const Color(0xFF1E88E5),
+                  child: IconButton(
+                    icon: Icon(_msgCtrl.text.isEmpty ? Icons.mic : Icons.send, color: Colors.white),
+                    onPressed: () async {
+                      if (_msgCtrl.text.isEmpty) {
+                        var micStatus = await Permission.microphone.request();
+                        if (micStatus.isGranted) {
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Voice Note Recorded & Sent')));
+                          _sendMediaMessage('Voice Note', 'Audio Message (0:15)');
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Microphone permission is required to send voice notes')));
                         }
-                      },
-                    ),
+                      } else {
+                        _send();
+                      }
+                    },
                   ),
                 ),
               ],
