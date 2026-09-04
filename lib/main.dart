@@ -9,6 +9,7 @@ import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:audioplayers/audioplayers.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -752,18 +753,14 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
   bool _isSearching = false;
   final TextEditingController _searchController = TextEditingController();
   final LocalAuthentication _localAuth = LocalAuthentication();
+  final AudioPlayer _audioPlayer = AudioPlayer();
 
-  final List<String> _allSongs = [
-    '🎵 Kesariya - Brahmāstra (0:30)',
-    '🎶 Tum Hi Ho - Aashiqui 2 (0:30)',
-    '🎸 Raataan Lambiyan - Shershaah (0:30)',
-    '🎹 Apna Bana Le - Bhediya (0:30)',
-    '🎷 Levitating - Dua Lipa (0:30)',
-    '🎻 Perfect - Ed Sheeran (0:30)',
-    '🥁 Believer - Imagine Dragons (0:30)',
-    '🎧 Senorita - Shawn Mendes (0:30)',
-    '🎶 Dil Diyan Gallan - Tiger Zinda Hai (0:30)',
-    '🎵 Apna Har Din - Golmaal (0:30)',
+  final List<Map<String, String>> _allSongs = [
+    {'title': 'Kesariya - Brahmāstra', 'url': 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'},
+    {'title': 'Tum Hi Ho - Aashiqui 2', 'url': 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3'},
+    {'title': 'Raataan Lambiyan - Shershaah', 'url': 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3'},
+    {'title': 'Apna Bana Le - Bhediya', 'url': 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3'},
+    {'title': 'Levitating - Dua Lipa', 'url': 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3'},
   ];
 
   @override
@@ -811,6 +808,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _audioPlayer.dispose();
     super.dispose();
   }
 
@@ -844,7 +842,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
         builder: (ctx) => StatefulBuilder(
           builder: (context, setStateModal) {
             String songSearchQuery = '';
-            final searchedSongs = _allSongs.where((song) => song.toLowerCase().contains(songSearchQuery.toLowerCase())).toList();
+            final searchedSongs = _allSongs.where((song) => song['title']!.toLowerCase().contains(songSearchQuery.toLowerCase())).toList();
 
             return Container(
               height: MediaQuery.of(context).size.height * 0.65,
@@ -874,13 +872,14 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
                         final song = searchedSongs[index];
                         return ListTile(
                           leading: const Icon(Icons.music_note, color: Color(0xFF1E88E5)),
-                          title: Text(song, style: const TextStyle(color: Colors.white)),
+                          title: Text(song['title']!, style: const TextStyle(color: Colors.white)),
                           onTap: () async {
                             Navigator.pop(ctx);
                             await FirebaseFirestore.instance.collection('statuses').add({
                               'phone': widget.myPhone,
                               'imagePath': pickedFile.path,
-                              'music': song,
+                              'music': song['title']!,
+                              'musicUrl': song['url']!,
                               'timestamp': FieldValue.serverTimestamp(),
                             });
                             if (mounted) {
@@ -900,6 +899,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
                         'phone': widget.myPhone,
                         'imagePath': pickedFile.path,
                         'music': '',
+                        'musicUrl': '',
                         'timestamp': FieldValue.serverTimestamp(),
                       });
                       if (mounted) {
@@ -935,6 +935,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
                   final data = myStatuses[index].data();
                   final imagePath = data['imagePath'] ?? '';
                   final music = data['music'] ?? '';
+                  final musicUrl = data['musicUrl'] ?? '';
                   final docId = myStatuses[index].id;
 
                   return Card(
@@ -961,7 +962,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
                       ),
                       onTap: () {
                         Navigator.pop(ctx);
-                        _viewSingleStatus('My Status', imagePath, music);
+                        _viewSingleStatus('My Status', imagePath, music, musicUrl);
                       },
                     ),
                   );
@@ -974,69 +975,89 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
     );
   }
 
-  void _viewSingleStatus(String name, String? imagePath, String? music) {
+  void _viewSingleStatus(String name, String? imagePath, String? music, String? musicUrl) async {
+    if (musicUrl != null && musicUrl.isNotEmpty) {
+      try {
+        await _audioPlayer.play(UrlSource(musicUrl));
+      } catch (_) {}
+    }
+
+    if (!mounted) return;
+
     showDialog(
       context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.black,
-        insetPadding: EdgeInsets.zero,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            imagePath != null && imagePath.isNotEmpty
-                ? (imagePath.startsWith('http') ? Image.network(imagePath, fit: BoxFit.contain) : Image.file(File(imagePath), fit: BoxFit.contain))
-                : const Center(child: Text('No Status Available', style: TextStyle(color: Colors.white))),
-            
-            Positioned(
-              top: 15,
-              left: 10,
-              right: 10,
-              child: LinearProgressIndicator(
-                value: 1.0,
-                backgroundColor: Colors.grey,
-                valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-                minHeight: 3,
-              ),
-            ),
-
-            Positioned(
-              top: 35,
-              left: 20,
-              child: Row(
-                children: [
-                  const CircleAvatar(radius: 16, child: Icon(Icons.person, size: 18)),
-                  const SizedBox(width: 10),
-                  Text(name, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                ],
-              ),
-            ),
-            if (music != null && music.isNotEmpty)
+      barrierDismissible: false,
+      builder: (ctx) => WillPopScope(
+        onWillPop: () async {
+          await _audioPlayer.stop();
+          return true;
+        },
+        child: Dialog(
+          backgroundColor: Colors.black,
+          insetPadding: EdgeInsets.zero,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              imagePath != null && imagePath.isNotEmpty
+                  ? (imagePath.startsWith('http') ? Image.network(imagePath, fit: BoxFit.contain) : Image.file(File(imagePath), fit: BoxFit.contain))
+                  : const Center(child: Text('No Status Available', style: TextStyle(color: Colors.white))),
+              
               Positioned(
-                bottom: 40,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(20)),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.music_note, color: Colors.greenAccent, size: 18),
-                      const SizedBox(width: 8),
-                      Text(music, style: const TextStyle(color: Colors.white, fontSize: 14)),
-                    ],
-                  ),
+                top: 15,
+                left: 10,
+                right: 10,
+                child: LinearProgressIndicator(
+                  value: 1.0,
+                  backgroundColor: Colors.grey,
+                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                  minHeight: 3,
                 ),
               ),
-            Positioned(
-              top: 35,
-              right: 20,
-              child: IconButton(
-                icon: const Icon(Icons.close, color: Colors.white, size: 28),
-                onPressed: () => Navigator.pop(ctx),
+
+              Positioned(
+                top: 35,
+                left: 20,
+                child: Row(
+                  children: [
+                    const CircleAvatar(radius: 16, child: Icon(Icons.person, size: 18)),
+                    const SizedBox(width: 10),
+                    Text(name, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                  ],
+                ),
               ),
-            ),
-          ],
+              if (music != null && music.isNotEmpty)
+                Positioned(
+                  bottom: 40,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(20)),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.music_note, color: Colors.greenAccent, size: 18),
+                        const SizedBox(width: 8),
+                        Text(music, style: const TextStyle(color: Colors.white, fontSize: 14)),
+                      ],
+                    ),
+                  ),
+                ),
+              Positioned(
+                top: 35,
+                right: 20,
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                  onPressed: () async {
+                    await _audioPlayer.stop();
+                    if (ctx.mounted) Navigator.pop(ctx);
+                  },
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-    );
+    ).then((_) {
+      _audioPlayer.stop();
+    });
   }
 
   void _showGmailBackupDialog() {
@@ -1224,15 +1245,15 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
                           child: _buildStatusItem('My Status', null, latestMyImagePath),
                         ),
                       GestureDetector(
-                        onTap: () => _viewSingleStatus('Rahul', null, null),
+                        onTap: () => _viewSingleStatus('Rahul', null, null, null),
                         child: _buildStatusItem('Rahul', null, null),
                       ),
                       GestureDetector(
-                        onTap: () => _viewSingleStatus('Priya', null, null),
+                        onTap: () => _viewSingleStatus('Priya', null, null, null),
                         child: _buildStatusItem('Priya', null, null),
                       ),
                       GestureDetector(
-                        onTap: () => _viewSingleStatus('Anita', null, null),
+                        onTap: () => _viewSingleStatus('Anita', null, null, null),
                         child: _buildStatusItem('Anita', null, null),
                       ),
                     ],
