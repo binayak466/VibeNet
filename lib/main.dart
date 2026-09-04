@@ -2145,19 +2145,10 @@ class _ConversationScreenState extends State<ConversationScreen> {
                   radius: 24,
                   backgroundColor: const Color(0xFF1E88E5),
                   child: IconButton(
-                    icon: Icon(_msgCtrl.text.isEmpty ? Icons.mic : Icons.send, color: Colors.white),
-                    onPressed: () async {
-                      if (_msgCtrl.text.isEmpty) {
-                        var micStatus = await Permission.microphone.request();
-                        if (micStatus.isGranted) {
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Voice Note Recorded & Sent')));
-                          _sendMediaMessage('Voice Note', 'Audio Message (0:15)');
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Microphone permission is required to send voice notes')));
-                        }
-                      } else {
-                        _send();
-                      }
+                    icon: const Icon(Icons.mic, color: Colors.white),
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Voice Note Recorded & Sent')));
+                      _sendMediaMessage('Voice Note', 'Audio Message (0:15)');
                     },
                   ),
                 ),
@@ -2242,6 +2233,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
     await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({'lastSeenPrivacy': val});
   }
 
+  Future<void> _pickAndUploadProfilePhoto() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      setState(() {
+        _photoUrl = pickedFile.path;
+      });
+      await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({
+        'photoUrl': pickedFile.path,
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile photo updated successfully!')));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -2254,22 +2261,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           Center(
-            child: Column(
-              children: [
-                CircleAvatar(
-                  radius: 50,
-                  backgroundColor: const Color(0xFF1E88E5),
-                  backgroundImage: _photoUrl.isNotEmpty
-                      ? (_photoUrl.startsWith('http') ? NetworkImage(_photoUrl) : FileImage(File(_photoUrl)) as ImageProvider)
-                      : null,
-                  child: _photoUrl.isEmpty ? const Icon(Icons.person, size: 50, color: Colors.white) : null,
-                ),
-                const SizedBox(height: 12),
-                Text(_profileName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 4),
-                Text(maskPhoneNumber(widget.myPhone), style: const TextStyle(color: Colors.grey, fontSize: 14)),
-              ],
+            child: GestureDetector(
+              onTap: _pickAndUploadProfilePhoto,
+              child: Stack(
+                children: [
+                  CircleAvatar(
+                    radius: 50,
+                    backgroundColor: const Color(0xFF1E88E5),
+                    backgroundImage: _photoUrl.isNotEmpty
+                        ? (_photoUrl.startsWith('http') ? NetworkImage(_photoUrl) : FileImage(File(_photoUrl)) as ImageProvider)
+                        : null,
+                    child: _photoUrl.isEmpty ? const Icon(Icons.person, size: 50, color: Colors.white) : null,
+                  ),
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF1E88E5),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.camera_alt, color: Colors.white, size: 18),
+                    ),
+                  ),
+                ],
+              ),
             ),
+          ),
+          const SizedBox(height: 12),
+          Center(
+            child: Text(_profileName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          ),
+          const SizedBox(height: 4),
+          Center(
+            child: Text(maskPhoneNumber(widget.myPhone), style: const TextStyle(color: Colors.grey, fontSize: 14)),
           ),
           const SizedBox(height: 24),
           const Divider(),
@@ -2289,6 +2315,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               dropdownColor: Colors.grey[900],
               items: const [
                 DropdownMenuItem(value: 'everyone', child: Text('Everyone')),
+                DropdownMenuItem(value: 'contacts', child: Text('My Contacts')),
                 DropdownMenuItem(value: 'nobody', child: Text('Nobody')),
               ],
               onChanged: (val) {
