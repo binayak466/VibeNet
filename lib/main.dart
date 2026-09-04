@@ -753,6 +753,13 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
   final TextEditingController _searchController = TextEditingController();
   final LocalAuthentication _localAuth = LocalAuthentication();
 
+  final List<String> _musicList = [
+    '🎵 Romantic Tune - Arijit Singh',
+    '🎶 Energetic Beat - EDM Mix',
+    '🎸 Acoustic Melody - Guitar Chill',
+    '🎹 Lo-Fi Study - Peaceful Vibe',
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -815,6 +822,115 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
         'lastActive': FieldValue.serverTimestamp(),
       });
     } catch (_) {}
+  }
+
+  Future<void> _uploadStatus() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      if (!mounted) return;
+      
+      // Select Music Modal
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: const Color(0xFF1E1E1E),
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+        builder: (ctx) => Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Add Background Music', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              ..._musicList.map((music) => ListTile(
+                leading: const Icon(Icons.music_note, color: Color(0xFF1E88E5)),
+                title: Text(music, style: const TextStyle(color: Colors.white)),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await FirebaseFirestore.instance.collection('statuses').add({
+                    'phone': widget.myPhone,
+                    'imagePath': pickedFile.path,
+                    'music': music,
+                    'timestamp': FieldValue.serverTimestamp(),
+                  });
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Status uploaded with music!')));
+                  }
+                },
+              )),
+              ListTile(
+                leading: const Icon(Icons.close, color: Colors.red),
+                title: const Text('Upload Without Music', style: TextStyle(color: Colors.red)),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await FirebaseFirestore.instance.collection('statuses').add({
+                    'phone': widget.myPhone,
+                    'imagePath': pickedFile.path,
+                    'music': '',
+                    'timestamp': FieldValue.serverTimestamp(),
+                  });
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Status uploaded successfully!')));
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+  }
+
+  void _viewStatus(String name, String? imagePath, String? music) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.black,
+        insetPadding: EdgeInsets.zero,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            imagePath != null && imagePath.isNotEmpty
+                ? (imagePath.startsWith('http') ? Image.network(imagePath, fit: BoxFit.contain) : Image.file(File(imagePath), fit: BoxFit.contain))
+                : const Center(child: Text('No Status Available', style: TextStyle(color: Colors.white))),
+            Positioned(
+              top: 40,
+              left: 20,
+              child: Row(
+                children: [
+                  const CircleAvatar(radius: 16, child: Icon(Icons.person, size: 18)),
+                  const SizedBox(width: 10),
+                  Text(name, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ),
+            if (music != null && music.isNotEmpty)
+              Positioned(
+                bottom: 40,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(20)),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.music_note, color: Colors.greenAccent, size: 18),
+                      const SizedBox(width: 8),
+                      Text(music, style: const TextStyle(color: Colors.white, fontSize: 14)),
+                    ],
+                  ),
+                ),
+              ),
+            Positioned(
+              top: 40,
+              right: 20,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                onPressed: () => Navigator.pop(ctx),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -921,16 +1037,47 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
 
             SizedBox(
               height: 90,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                children: [
-                  _buildStatusItem('My Status', Icons.add),
-                  _buildStatusItem('Rahul', null),
-                  _buildStatusItem('Priya', null),
-                  _buildStatusItem('Anita', null),
-                  _buildStatusItem('Vikram', null),
-                ],
+              child: StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance.collection('statuses').snapshots(),
+                builder: (context, snapshot) {
+                  final statuses = snapshot.hasData ? snapshot.data!.docs : [];
+                  
+                  return ListView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    children: [
+                      GestureDetector(
+                        onTap: _uploadStatus,
+                        child: _buildStatusItem('My Status', Icons.add, null),
+                      ),
+                      ...statuses.map((doc) {
+                        final data = doc.data() as Map<String, dynamic>;
+                        final phone = data['phone'] ?? '';
+                        final imagePath = data['imagePath'];
+                        final music = data['music'];
+                        if (phone == widget.myPhone) {
+                          return GestureDetector(
+                            onTap: () => _viewStatus('My Status', imagePath, music),
+                            child: _buildStatusItem('My Status', null, imagePath),
+                          );
+                        }
+                        return const SizedBox.shrink();
+                      }),
+                      GestureDetector(
+                        onTap: () => _viewStatus('Rahul', null, null),
+                        child: _buildStatusItem('Rahul', null, null),
+                      ),
+                      GestureDetector(
+                        onTap: () => _viewStatus('Priya', null, null),
+                        child: _buildStatusItem('Priya', null, null),
+                      ),
+                      GestureDetector(
+                        onTap: () => _viewStatus('Anita', null, null),
+                        child: _buildStatusItem('Anita', null, null),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
 
@@ -1005,7 +1152,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
     );
   }
 
-  Widget _buildStatusItem(String name, IconData? icon) {
+  Widget _buildStatusItem(String name, IconData? icon, String? imagePath) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
       child: Column(
@@ -1018,7 +1165,8 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
             ),
             child: CircleAvatar(
               radius: 24,
-              child: Icon(icon ?? Icons.person, size: icon != null ? 20 : 24),
+              backgroundImage: imagePath != null && imagePath.isNotEmpty ? FileImage(File(imagePath)) as ImageProvider : null,
+              child: imagePath == null ? Icon(icon ?? Icons.person, size: icon != null ? 20 : 24) : null,
             ),
           ),
           const SizedBox(height: 4),
