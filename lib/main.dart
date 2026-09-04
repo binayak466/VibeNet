@@ -555,6 +555,43 @@ class ContactsScreen extends StatefulWidget {
 }
 
 class _ContactsScreenState extends State<ContactsScreen> {
+  void _showCreateGroupDialog(BuildContext context) {
+    final TextEditingController groupNameController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Create New Group'),
+        content: TextField(
+          controller: groupNameController,
+          decoration: const InputDecoration(hintText: 'Enter group name...', border: OutlineInputBorder()),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E88E5), foregroundColor: Colors.white),
+            onPressed: () async {
+              final groupName = groupNameController.text.trim();
+              if (groupName.isEmpty) return;
+
+              await FirebaseFirestore.instance.collection('groups').add({
+                'groupName': groupName,
+                'createdBy': widget.myPhone,
+                'createdAt': FieldValue.serverTimestamp(),
+              });
+
+              if (ctx.mounted) Navigator.pop(ctx);
+              if (context.mounted) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Group "$groupName" created successfully!')));
+              }
+            },
+            child: const Text('Create'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _fetchAndShowContacts(BuildContext context) async {
     if (await Permission.contacts.request().isGranted) {
       final contacts = await FlutterContacts.getContacts(withProperties: true);
@@ -711,9 +748,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
                   subtitle: const Text('Create a new chat group'),
                   onTap: () {
                     Navigator.pop(ctx);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('New Group feature coming soon!')),
-                    );
+                    _showCreateGroupDialog(context);
                   },
                 ),
                 const Divider(),
@@ -756,11 +791,16 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
   final AudioPlayer _audioPlayer = AudioPlayer();
 
   final List<Map<String, String>> _allSongs = [
-    {'title': 'Kesariya - Brahmāstra', 'url': 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'},
-    {'title': 'Tum Hi Ho - Aashiqui 2', 'url': 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3'},
-    {'title': 'Raataan Lambiyan - Shershaah', 'url': 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3'},
-    {'title': 'Apna Bana Le - Bhediya', 'url': 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3'},
-    {'title': 'Levitating - Dua Lipa', 'url': 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3'},
+    {'title': 'Kesariya - Brahmāstra (0:30)', 'url': 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'},
+    {'title': 'Tum Hi Ho - Aashiqui 2 (0:30)', 'url': 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3'},
+    {'title': 'Raataan Lambiyan - Shershaah (0:30)', 'url': 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3'},
+    {'title': 'Apna Bana Le - Bhediya (0:30)', 'url': 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3'},
+    {'title': 'Levitating - Dua Lipa (0:30)', 'url': 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3'},
+    {'title': 'Perfect - Ed Sheeran (0:30)', 'url': 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3'},
+    {'title': 'Believer - Imagine Dragons (0:30)', 'url': 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3'},
+    {'title': 'Senorita - Shawn Mendes (0:30)', 'url': 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3'},
+    {'title': 'Dil Diyan Gallan - Tiger Zinda Hai (0:30)', 'url': 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3'},
+    {'title': 'Apna Har Din - Golmaal (0:30)', 'url': 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3'},
   ];
 
   @override
@@ -1267,39 +1307,93 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
             Expanded(
               child: _currentIndex == 0
                   ? StreamBuilder<QuerySnapshot>(
-                      stream: FirebaseFirestore.instance.collection('users').snapshots(),
-                      builder: (context, snapshot) {
-                        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-                        final users = snapshot.data!.docs.where((d) {
-                          if (d.id == widget.myPhone) return false;
-                          if (_searchQuery.isEmpty) return true;
-                          final data = d.data() as Map<String, dynamic>;
-                          final name = (data['name'] ?? '').toString().toLowerCase();
-                          final phone = (data['phone'] ?? '').toString().toLowerCase();
-                          return name.contains(_searchQuery.toLowerCase()) || phone.contains(_searchQuery.toLowerCase());
-                        }).toList();
+                      stream: FirebaseFirestore.instance.collection('groups').snapshots(),
+                      builder: (context, groupSnapshot) {
+                        final groups = groupSnapshot.hasData ? groupSnapshot.data!.docs : [];
 
-                        if (users.isEmpty) {
-                          return const Center(child: Text('No registered contacts found'));
-                        }
+                        return StreamBuilder<QuerySnapshot>(
+                          stream: FirebaseFirestore.instance.collection('users').snapshots(),
+                          builder: (context, userSnapshot) {
+                            if (!userSnapshot.hasData && !groupSnapshot.hasData) return const Center(child: CircularProgressIndicator());
+                            
+                            final users = userSnapshot.hasData ? userSnapshot.data!.docs.where((d) {
+                              if (d.id == widget.myPhone) return false;
+                              if (_searchQuery.isEmpty) return true;
+                              final data = d.data() as Map<String, dynamic>;
+                              final name = (data['name'] ?? '').toString().toLowerCase();
+                              final phone = (data['phone'] ?? '').toString().toLowerCase();
+                              return name.contains(_searchQuery.toLowerCase()) || phone.contains(_searchQuery.toLowerCase());
+                            }).toList() : [];
 
-                        return ListView.builder(
-                          itemCount: users.length,
-                          itemBuilder: (context, index) {
-                            final data = users[index].data() as Map<String, dynamic>;
-                            final name = data['name'] ?? 'User';
-                            final phone = data['phone'] ?? '';
-                            final photo = data['photoUrl'] ?? '';
-                            return ListTile(
-                              leading: CircleAvatar(
-                                backgroundImage: photo.isNotEmpty ? (photo.startsWith('http') ? NetworkImage(photo) : FileImage(File(photo)) as ImageProvider) : null,
-                                child: photo.isEmpty ? const Icon(Icons.person) : null,
-                              ),
-                              title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                              subtitle: Text(maskPhoneNumber(phone)),
-                              onTap: () {
-                                Navigator.push(context, MaterialPageRoute(builder: (c) => ConversationScreen(myPhone: widget.myPhone, receiverPhone: phone, receiverName: name)));
-                              },
+                            final filteredGroups = groups.where((g) {
+                              if (_searchQuery.isEmpty) return true;
+                              final data = g.data() as Map<String, dynamic>;
+                              final groupName = (data['groupName'] ?? '').toString().toLowerCase();
+                              return groupName.contains(_searchQuery.toLowerCase());
+                            }).toList();
+
+                            return ListView(
+                              children: [
+                                if (filteredGroups.isNotEmpty) ...[
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                    child: Text('Groups', style: TextStyle(color: Color(0xFF1E88E5), fontWeight: FontWeight.bold, fontSize: 14)),
+                                  ),
+                                  ...filteredGroups.map((gDoc) {
+                                    final gData = gDoc.data() as Map<String, dynamic>;
+                                    final gName = gData['groupName'] ?? 'Group';
+                                    return ListTile(
+                                      leading: const CircleAvatar(
+                                        backgroundColor: Color(0xFF1E88E5),
+                                        child: Icon(Icons.group, color: Colors.white),
+                                      ),
+                                      title: Text(gName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                      subtitle: const Text('Tap to open group chat'),
+                                      onTap: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (c) => GroupConversationScreen(
+                                              myPhone: widget.myPhone,
+                                              groupId: gDoc.id,
+                                              groupName: gName,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    );
+                                  }),
+                                  const Divider(),
+                                ],
+                                if (users.isNotEmpty) ...[
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                    child: Text('Direct Chats', style: TextStyle(color: Color(0xFF1E88E5), fontWeight: FontWeight.bold, fontSize: 14)),
+                                  ),
+                                  ...users.map((userDoc) {
+                                    final data = userDoc.data() as Map<String, dynamic>;
+                                    final name = data['name'] ?? 'User';
+                                    final phone = data['phone'] ?? '';
+                                    final photo = data['photoUrl'] ?? '';
+                                    return ListTile(
+                                      leading: CircleAvatar(
+                                        backgroundImage: photo.isNotEmpty ? (photo.startsWith('http') ? NetworkImage(photo) : FileImage(File(photo)) as ImageProvider) : null,
+                                        child: photo.isEmpty ? const Icon(Icons.person) : null,
+                                      ),
+                                      title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                      subtitle: Text(maskPhoneNumber(phone)),
+                                      onTap: () {
+                                        Navigator.push(context, MaterialPageRoute(builder: (c) => ConversationScreen(myPhone: widget.myPhone, receiverPhone: phone, receiverName: name)));
+                                      },
+                                    );
+                                  }),
+                                ] else if (filteredGroups.isEmpty) ...[
+                                  const Padding(
+                                    padding: EdgeInsets.all(32.0),
+                                    child: Center(child: Text('No registered contacts or groups found')),
+                                  ),
+                                ]
+                              ],
                             );
                           },
                         );
@@ -1358,378 +1452,142 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
   }
 }
 
-class UserProfileScreen extends StatelessWidget {
-  final String receiverPhone;
-  final String receiverName;
-  const UserProfileScreen({super.key, required this.receiverPhone, required this.receiverName});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(receiverName)),
-      body: FutureBuilder<DocumentSnapshot>(
-        future: FirebaseFirestore.instance.collection('users').doc(receiverPhone).get(),
-        builder: (context, snapshot) {
-          String photoUrl = '';
-          if (snapshot.hasData && snapshot.data!.exists) {
-            final data = snapshot.data!.data() as Map<String, dynamic>?;
-            photoUrl = data?['photoUrl'] ?? '';
-          }
-
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircleAvatar(
-                    radius: 60,
-                    backgroundImage: photoUrl.isNotEmpty
-                        ? (photoUrl.startsWith('http') ? NetworkImage(photoUrl) : FileImage(File(photoUrl)) as ImageProvider)
-                        : null,
-                    child: photoUrl.isEmpty ? const Icon(Icons.person, size: 60, color: Colors.white) : null,
-                  ),
-                  const SizedBox(height: 20),
-                  Text(receiverName, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  Text(maskPhoneNumber(receiverPhone), style: const TextStyle(fontSize: 16, color: Colors.grey)),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class CallScreen extends StatefulWidget {
-  final String receiverName;
-  final String receiverPhone;
-  final bool isVideoCall;
-  const CallScreen({super.key, required this.receiverName, required this.receiverPhone, required this.isVideoCall});
-
-  @override
-  State<CallScreen> createState() => _CallScreenState();
-}
-
-class _CallScreenState extends State<CallScreen> {
-  bool _isMuted = false;
-  bool _isSpeakerOn = false;
-  bool _isVideoOff = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black87,
-      body: SafeArea(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(top: 40.0),
-              child: Column(
-                children: [
-                  Text(widget.receiverName, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.white)),
-                  const SizedBox(height: 8),
-                  const Text('Calling...', style: TextStyle(fontSize: 16, color: Colors.white70)),
-                ],
-              ),
-            ),
-            Center(
-              child: CircleAvatar(
-                radius: 70,
-                backgroundColor: const Color(0xFF1E88E5),
-                child: Icon(widget.isVideoCall ? Icons.videocam : Icons.phone, size: 60, color: Colors.white),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(bottom: 40.0),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      IconButton(
-                        icon: Icon(_isMuted ? Icons.mic_off : Icons.mic, color: Colors.white, size: 30),
-                        onPressed: () => setState(() => _isMuted = !_isMuted),
-                      ),
-                      const SizedBox(width: 30),
-                      IconButton(
-                        icon: Icon(_isSpeakerOn ? Icons.volume_up : Icons.volume_down, color: Colors.white, size: 30),
-                        onPressed: () => setState(() => _isSpeakerOn = !_isSpeakerOn),
-                      ),
-                      if (widget.isVideoCall) ...[
-                        const SizedBox(width: 30),
-                        IconButton(
-                          icon: Icon(_isVideoOff ? Icons.videocam_off : Icons.videocam, color: Colors.white, size: 30),
-                          onPressed: () => setState(() => _isVideoOff = !_isVideoOff),
-                        ),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 30),
-                  FloatingActionButton(
-                    backgroundColor: Colors.red,
-                    onPressed: () => Navigator.pop(context),
-                    child: const Icon(Icons.call_end, color: Colors.white, size: 30),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class ProfileScreen extends StatefulWidget {
+class GroupConversationScreen extends StatefulWidget {
   final String myPhone;
-  const ProfileScreen({super.key, required this.myPhone});
+  final String groupId;
+  final String groupName;
+  const GroupConversationScreen({super.key, required this.myPhone, required this.groupId, required this.groupName});
 
   @override
-  State<ProfileScreen> createState() => _ProfileScreenState();
+  State<GroupConversationScreen> createState() => _GroupConversationScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
-  String? _newPhoto;
-  String _profilePhotoPrivacy = 'everyone';
-  String _lastSeenPrivacy = 'everyone';
-  bool _isBiometricLocked = false;
+class _GroupConversationScreenState extends State<GroupConversationScreen> {
+  final TextEditingController _msgCtrl = TextEditingController();
 
-  Future<void> _updateProfilePhoto() async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-    if (pickedFile != null) {
-      setState(() => _newPhoto = pickedFile.path);
-      await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({
-        'photoUrl': _newPhoto,
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile photo updated successfully!')));
-      }
-    }
-  }
+  void _sendGroupMessage() async {
+    final text = _msgCtrl.text.trim();
+    if (text.isEmpty) return;
+    _msgCtrl.clear();
 
-  void _showPrivacyDialog(String title, String currentVal, Function(String) onSelected) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(title),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            RadioListTile<String>(
-              title: const Text('Everyone'),
-              value: 'everyone',
-              groupValue: currentVal,
-              onChanged: (v) {
-                onSelected(v!);
-                Navigator.pop(ctx);
-              },
-            ),
-            RadioListTile<String>(
-              title: const Text('My contacts'),
-              value: 'contacts',
-              groupValue: currentVal,
-              onChanged: (v) {
-                onSelected(v!);
-                Navigator.pop(ctx);
-              },
-            ),
-            RadioListTile<String>(
-              title: const Text('Only me (Nobody)'),
-              value: 'nobody',
-              groupValue: currentVal,
-              onChanged: (v) {
-                onSelected(v!);
-                Navigator.pop(ctx);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
+    await FirebaseFirestore.instance.collection('groups').doc(widget.groupId).collection('messages').add({
+      'sender': widget.myPhone,
+      'text': text,
+      'timestamp': FieldValue.serverTimestamp(),
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: StreamBuilder<DocumentSnapshot>(
-        stream: FirebaseFirestore.instance.collection('users').doc(widget.myPhone).snapshots(),
-        builder: (context, snapshot) {
-          String photoUrl = '';
-          if (snapshot.hasData && snapshot.data!.exists) {
-            final data = snapshot.data!.data() as Map<String, dynamic>?;
-            photoUrl = data?['photoUrl'] ?? '';
-            _profilePhotoPrivacy = data?['photoPrivacy'] ?? 'everyone';
-            _lastSeenPrivacy = data?['lastSeenPrivacy'] ?? 'everyone';
-            _isBiometricLocked = data?['biometricEnabled'] ?? false;
-          }
+      appBar: AppBar(
+        title: Row(
+          children: [
+            const CircleAvatar(
+              radius: 18,
+              backgroundColor: Colors.white,
+              child: Icon(Icons.group, size: 20, color: Color(0xFF1E88E5)),
+            ),
+            const SizedBox(width: 10),
+            Text(widget.groupName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        backgroundColor: const Color(0xFF1E88E5),
+        foregroundColor: Colors.white,
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('groups')
+                  .doc(widget.groupId)
+                  .collection('messages')
+                  .orderBy('timestamp', descending: true)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+                final docs = snapshot.data!.docs;
 
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              children: [
-                const SizedBox(height: 20),
-                GestureDetector(
-                  onTap: _updateProfilePhoto,
-                  child: Stack(
-                    children: [
-                      CircleAvatar(
-                        radius: 50,
-                        backgroundImage: (_newPhoto != null && _newPhoto!.isNotEmpty)
-                            ? FileImage(File(_newPhoto!)) as ImageProvider
-                            : (photoUrl.isNotEmpty
-                                ? (photoUrl.startsWith('http') ? NetworkImage(photoUrl) : FileImage(File(photoUrl)) as ImageProvider)
-                                : null),
-                        child: (_newPhoto == null && photoUrl.isEmpty) ? const Icon(Icons.person, size: 50, color: Colors.white) : null,
-                      ),
-                      const Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: CircleAvatar(
-                          radius: 16,
-                          backgroundColor: Color(0xFF1E88E5),
-                          child: Icon(Icons.camera_alt, size: 16, color: Colors.white),
+                if (docs.isEmpty) {
+                  return const Center(child: Text('No messages in this group yet. Say hello!'));
+                }
+
+                return ListView.builder(
+                  reverse: true,
+                  itemCount: docs.length,
+                  itemBuilder: (context, index) {
+                    final data = docs[index].data() as Map<String, dynamic>;
+                    final isMe = data['sender'] == widget.myPhone;
+                    final senderPhone = data['sender'] ?? '';
+
+                    return Align(
+                      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: isMe ? const Color(0xFF1E88E5) : Colors.grey[200],
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (!isMe)
+                              Text(
+                                maskPhoneNumber(senderPhone),
+                                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueGrey),
+                              ),
+                            if (!isMe) const SizedBox(height: 2),
+                            Text(
+                              data['text'] ?? '',
+                              style: TextStyle(
+                                fontSize: 15,
+                                color: isMe ? Colors.white : Colors.black87,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  maskPhoneNumber(widget.myPhone),
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 20),
-
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1E88E5).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFF1E88E5), width: 1),
-                  ),
-                  child: Column(
-                    children: [
-                      const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.account_balance_wallet, color: Color(0xFF1E88E5)),
-                          SizedBox(width: 8),
-                          Text('VibeNet UPI & Pay', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                        ],
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[200],
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    child: TextField(
+                      controller: _msgCtrl,
+                      decoration: const InputDecoration(
+                        hintText: 'Type group message...',
+                        border: InputBorder.none,
                       ),
-                      const SizedBox(height: 12),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: [
-                          ElevatedButton.icon(
-                            onPressed: () {},
-                            icon: const Icon(Icons.qr_code_scanner, size: 18),
-                            label: const Text('Scan QR'),
-                            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E88E5), foregroundColor: Colors.white),
-                          ),
-                          ElevatedButton.icon(
-                            onPressed: () {},
-                            icon: const Icon(Icons.send, size: 18),
-                            label: const Text('Pay UPI'),
-                            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E88E5), foregroundColor: Colors.white),
-                          ),
-                        ],
-                      ),
-                    ],
+                    ),
                   ),
                 ),
-                const SizedBox(height: 20),
-
-                const Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text('Privacy Settings', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E88E5))),
-                ),
-                const SizedBox(height: 8),
-                ListTile(
-                  leading: const Icon(Icons.visibility, color: Color(0xFF1E88E5)),
-                  title: const Text('Last Seen'),
-                  subtitle: Text(_lastSeenPrivacy.toUpperCase()),
-                  onTap: () {
-                    _showPrivacyDialog('Last Seen Privacy', _lastSeenPrivacy, (val) async {
-                      setState(() => _lastSeenPrivacy = val);
-                      await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({'lastSeenPrivacy': val});
-                    });
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.account_circle, color: Color(0xFF1E88E5)),
-                  title: const Text('Profile Photo Privacy'),
-                  subtitle: Text(_profilePhotoPrivacy.toUpperCase()),
-                  onTap: () {
-                    _showPrivacyDialog('Profile Photo Privacy', _profilePhotoPrivacy, (val) async {
-                      setState(() => _profilePhotoPrivacy = val);
-                      await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({'photoPrivacy': val});
-                    });
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.fingerprint, color: Color(0xFF1E88E5)),
-                  title: const Text('Biometric App Lock'),
-                  subtitle: Text(_isBiometricLocked ? 'Enabled' : 'Disabled'),
-                  trailing: Switch(
-                    value: _isBiometricLocked,
-                    onChanged: (val) async {
-                      setState(() {
-                        _isBiometricLocked = val;
-                      });
-                      await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({
-                        'biometricEnabled': val,
-                      });
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(val ? 'Biometric Lock Enabled' : 'Biometric Lock Disabled')),
-                        );
-                      }
-                    },
+                const SizedBox(width: 8),
+                CircleAvatar(
+                  radius: 24,
+                  backgroundColor: const Color(0xFF1E88E5),
+                  child: IconButton(
+                    icon: const Icon(Icons.send, color: Colors.white),
+                    onPressed: _sendGroupMessage,
                   ),
-                ),
-                const Divider(),
-
-                ListTile(
-                  leading: const Icon(Icons.language, color: Color(0xFF1E88E5)),
-                  title: const Text('Change Language / ভাষা পরিবর্তন'),
-                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                  onTap: () => showLanguageSelector(context),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.brightness_6, color: Color(0xFF1E88E5)),
-                  title: const Text('Dark / Light Mode'),
-                  trailing: Switch(
-                    value: appThemeMode.value == ThemeMode.dark,
-                    onChanged: (isDark) {
-                      appThemeMode.value = isDark ? ThemeMode.dark : ThemeMode.light;
-                    },
-                  ),
-                ),
-                const Divider(),
-                ListTile(
-                  leading: const Icon(Icons.logout, color: Colors.red),
-                  title: const Text('Log Out', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-                  onTap: () async {
-                    await FirebaseAuth.instance.signOut();
-                    if (context.mounted) {
-                      Navigator.pushAndRemoveUntil(
-                        context,
-                        MaterialPageRoute(builder: (c) => const WelcomeTermsScreen()),
-                        (r) => false,
-                      );
-                    }
-                  },
                 ),
               ],
             ),
-          );
-        },
+          ),
+        ],
       ),
     );
   }
@@ -1782,201 +1640,13 @@ class _ConversationScreenState extends State<ConversationScreen> {
     });
   }
 
-  void _sendMediaMessage(String mediaType, String content) async {
-    await FirebaseFirestore.instance.collection('chats').add({
-      'sender': widget.myPhone,
-      'receiver': widget.receiverPhone,
-      'text': '[$mediaType] $content',
-      'isSeen': false,
-      'timestamp': FieldValue.serverTimestamp(),
-    });
-  }
-
-  void _deleteMessage(String docId, bool isMe) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Delete Message', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            ListTile(
-              leading: const Icon(Icons.delete_outline, color: Colors.orange),
-              title: const Text('Delete for me'),
-              onTap: () async {
-                Navigator.pop(ctx);
-                await FirebaseFirestore.instance.collection('chats').doc(docId).delete();
-              },
-            ),
-            if (isMe) ...[
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.delete_forever, color: Colors.red),
-                title: const Text('Delete for everyone', style: TextStyle(color: Colors.red)),
-                onTap: () async {
-                  Navigator.pop(ctx);
-                  await FirebaseFirestore.instance.collection('chats').doc(docId).delete();
-                },
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAttachmentItem(IconData icon, Color color, String label, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 58,
-            height: 58,
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.2),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: color, size: 28),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            style: const TextStyle(color: Colors.white70, fontSize: 12),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Row(
-          children: [
-            const CircleAvatar(
-              radius: 18,
-              child: Icon(Icons.person, size: 20),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: StreamBuilder<DocumentSnapshot>(
-                stream: FirebaseFirestore.instance.collection('users').doc(widget.receiverPhone).snapshots(),
-                builder: (context, snapshot) {
-                  String statusText = maskPhoneNumber(widget.receiverPhone);
-                  if (snapshot.hasData && snapshot.data!.exists) {
-                    final data = snapshot.data!.data() as Map<String, dynamic>?;
-                    final lastSeenPrivacy = data?['lastSeenPrivacy'] ?? 'everyone';
-                    
-                    if (lastSeenPrivacy != 'nobody') {
-                      final bool isExplicitlyOnline = data?['isOnline'] ?? false;
-                      final lastActive = data?['lastActive'];
-
-                      if (isExplicitlyOnline && lastActive != null && lastActive is Timestamp) {
-                        final DateTime activeTime = lastActive.toDate();
-                        final difference = DateTime.now().difference(activeTime);
-                        
-                        if (difference.inSeconds < 30) {
-                          statusText = 'Online';
-                        } else {
-                          int hour = activeTime.hour;
-                          String period = hour >= 12 ? 'PM' : 'AM';
-                          hour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
-                          String minute = activeTime.minute.toString().padLeft(2, '0');
-                          statusText = 'Last seen at $hour:$minute $period';
-                        }
-                      } else if (lastActive != null && lastActive is Timestamp) {
-                        final DateTime activeTime = lastActive.toDate();
-                        int hour = activeTime.hour;
-                        String period = hour >= 12 ? 'PM' : 'AM';
-                        hour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
-                        String minute = activeTime.minute.toString().padLeft(2, '0');
-                        statusText = 'Last seen at $hour:$minute $period';
-                      } else {
-                        statusText = 'Offline';
-                      }
-                    } else {
-                      statusText = 'Offline';
-                    }
-                  }
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(widget.receiverName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                      Text(statusText, style: const TextStyle(fontSize: 11, color: Colors.white70)),
-                    ],
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
+        title: Text(widget.receiverName),
         backgroundColor: const Color(0xFF1E88E5),
         foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.videocam),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (c) => CallScreen(
-                    receiverName: widget.receiverName,
-                    receiverPhone: widget.receiverPhone,
-                    isVideoCall: true,
-                  ),
-                ),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.call),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (c) => CallScreen(
-                    receiverName: widget.receiverName,
-                    receiverPhone: widget.receiverPhone,
-                    isVideoCall: false,
-                  ),
-                ),
-              );
-            },
-          ),
-          PopupMenuButton<String>(
-            onSelected: (value) {
-              if (value == 'View contact') {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (c) => UserProfileScreen(
-                      receiverPhone: widget.receiverPhone,
-                      receiverName: widget.receiverName,
-                    ),
-                  ),
-                );
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$value clicked')));
-              }
-            },
-            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-              const PopupMenuItem<String>(value: 'New group', child: Text('New group')),
-              const PopupMenuItem<String>(value: 'View contact', child: Text('View contact')),
-              const PopupMenuItem<String>(value: 'Search', child: Text('Search')),
-              const PopupMenuItem<String>(value: 'Media, links, and docs', child: Text('Media, links, and docs')),
-              const PopupMenuItem<String>(value: 'Mute notifications', child: Text('Mute notifications')),
-              const PopupMenuItem<String>(value: 'Disappearing messages', child: Text('Disappearing messages')),
-              const PopupMenuItem<String>(value: 'Chat theme', child: Text('Chat theme')),
-              const PopupMenuItem<String>(value: 'More', child: Text('More')),
-            ],
-          ),
-        ],
       ),
       body: Column(
         children: [
@@ -1996,85 +1666,21 @@ class _ConversationScreenState extends State<ConversationScreen> {
                   reverse: true,
                   itemCount: docs.length,
                   itemBuilder: (context, index) {
-                    final doc = docs[index];
-                    final data = doc.data() as Map<String, dynamic>;
+                    final data = docs[index].data() as Map<String, dynamic>;
                     final isMe = data['sender'] == widget.myPhone;
-                    final isSeen = data['isSeen'] ?? false;
 
-                    if (!isMe && !isSeen) {
-                      FirebaseFirestore.instance.collection('chats').doc(doc.id).update({'isSeen': true});
-                    }
-
-                    return GestureDetector(
-                      onLongPress: () => _deleteMessage(doc.id, isMe),
-                      child: Align(
-                        alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: isMe ? const Color(0xFF1E88E5) : Colors.grey[200],
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Flexible(
-                                child: data['text'].toString().startsWith('[Gallery Image]') || data['text'].toString().startsWith('[Camera Photo]') || data['text'].toString().startsWith('[Document]')
-                                    ? ClipRRect(
-                                        borderRadius: BorderRadius.circular(8),
-                                        child: Image.file(
-                                          File(data['text'].toString().split('] ').last),
-                                          height: 150,
-                                          width: 200,
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (context, error, stackTrace) => Text(data['text'], style: TextStyle(fontSize: 14, color: isMe ? Colors.white : Colors.black87)),
-                                        ),
-                                      )
-                                    : (data['text'].toString().startsWith('[')
-                                        ? Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(
-                                                data['text'].toString().contains('Location')
-                                                    ? Icons.location_on
-                                                    : (data['text'].toString().contains('Contact')
-                                                        ? Icons.person
-                                                        : Icons.attachment),
-                                                color: isMe ? Colors.white : Colors.black87,
-                                                size: 20,
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Flexible(
-                                                child: Text(
-                                                  data['text'] ?? '',
-                                                  style: TextStyle(
-                                                    fontSize: 15,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: isMe ? Colors.white : Colors.black87,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          )
-                                        : Text(
-                                            data['text'] ?? '',
-                                            style: TextStyle(
-                                              fontSize: 15,
-                                              color: isMe ? Colors.white : Colors.black87,
-                                            ),
-                                          )),
-                              ),
-                              const SizedBox(width: 6),
-                              if (isMe)
-                                Icon(
-                                  isSeen ? Icons.done_all : Icons.done,
-                                  size: 16,
-                                  color: isSeen ? Colors.blue : Colors.grey,
-                                ),
-                            ],
-                          ),
+                    return Align(
+                      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: isMe ? const Color(0xFF1E88E5) : Colors.grey[200],
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          data['text'] ?? '',
+                          style: TextStyle(fontSize: 15, color: isMe ? Colors.white : Colors.black87),
                         ),
                       ),
                     );
@@ -2088,197 +1694,61 @@ class _ConversationScreenState extends State<ConversationScreen> {
             child: Row(
               children: [
                 Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[200],
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    child: Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.emoji_emotions_outlined, color: Colors.grey),
-                          onPressed: () {
-                            showModalBottomSheet(
-                              context: context,
-                              backgroundColor: const Color(0xFF1E1E1E),
-                              shape: const RoundedRectangleBorder(
-                                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                              ),
-                              builder: (ctx) => Container(
-                                padding: const EdgeInsets.all(16),
-                                height: 250,
-                                child: Column(
-                                  children: [
-                                    Container(
-                                      width: 40,
-                                      height: 4,
-                                      decoration: BoxDecoration(
-                                        color: Colors.grey[600],
-                                        borderRadius: BorderRadius.circular(2),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    const Text(
-                                      'Select Emoji',
-                                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Expanded(
-                                      child: GridView.count(
-                                        crossAxisCount: 6,
-                                        children: ['😀', '😂', '😍', '😎', '😢', '🔥', '👍', '❤️', '🎉', '✨', '🙏', '💯', '😊', '🥳', '🤔', '🙌', '💪', '⭐']
-                                            .map((emoji) => InkWell(
-                                                  onTap: () {
-                                                    setState(() {
-                                                      _msgCtrl.text += emoji;
-                                                    });
-                                                    Navigator.pop(ctx);
-                                                  },
-                                                  child: Center(
-                                                    child: Text(emoji, style: const TextStyle(fontSize: 28)),
-                                                  ),
-                                                ))
-                                            .toList(),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                        Expanded(
-                          child: TextField(
-                            controller: _msgCtrl,
-                            decoration: const InputDecoration(
-                              hintText: 'Message',
-                              border: InputBorder.none,
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.attach_file, color: Colors.grey),
-                          onPressed: () {
-                            showModalBottomSheet(
-                              context: context,
-                              backgroundColor: const Color(0xFF1E1E1E),
-                              shape: const RoundedRectangleBorder(
-                                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                              ),
-                              builder: (ctx) => Container(
-                                padding: const EdgeInsets.all(20),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Container(
-                                      width: 40,
-                                      height: 4,
-                                      decoration: BoxDecoration(
-                                        color: Colors.grey[600],
-                                        borderRadius: BorderRadius.circular(2),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 20),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                                      children: [
-                                        _buildAttachmentItem(Icons.photo_library, Colors.blue, 'Gallery', () async {
-                                          Navigator.pop(ctx);
-                                          final picker = ImagePicker();
-                                          final image = await picker.pickImage(source: ImageSource.gallery);
-                                          if (image != null) {
-                                            _sendMediaMessage('Gallery Image', image.path);
-                                          }
-                                        }),
-                                        _buildAttachmentItem(Icons.location_on, Colors.green, 'Location', () {
-                                          Navigator.pop(ctx);
-                                          _sendMediaMessage('Location', 'Live GPS Location Shared');
-                                        }),
-                                        _buildAttachmentItem(Icons.person, Colors.lightBlueAccent, 'Contact', () {
-                                          Navigator.pop(ctx);
-                                          _sendMediaMessage('Contact', 'Shared a Contact');
-                                        }),
-                                        _buildAttachmentItem(Icons.insert_drive_file, Colors.purpleAccent, 'Document', () async {
-                                          Navigator.pop(ctx);
-                                          final picker = ImagePicker();
-                                          final docFile = await picker.pickImage(source: ImageSource.gallery);
-                                          if (docFile != null) {
-                                            _sendMediaMessage('Document', docFile.path);
-                                          }
-                                        }),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 20),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                                      children: [
-                                        _buildAttachmentItem(Icons.poll, Colors.amber, 'Poll', () {
-                                          Navigator.pop(ctx);
-                                          _sendMediaMessage('Poll', 'Created a new Poll');
-                                        }),
-                                        _buildAttachmentItem(Icons.currency_rupee, Colors.teal, 'Payment', () {
-                                          Navigator.pop(ctx);
-                                          _sendMediaMessage('Payment', '₹500.00 Sent via VibeNet UPI');
-                                        }),
-                                        _buildAttachmentItem(Icons.event, Colors.pinkAccent, 'Event', () {
-                                          Navigator.pop(ctx);
-                                          _sendMediaMessage('Event', 'Scheduled Meetup Event');
-                                        }),
-                                        _buildAttachmentItem(Icons.auto_awesome, Colors.blueAccent, 'AI images', () {
-                                          Navigator.pop(ctx);
-                                          _sendMediaMessage('AI Image', 'Generated AI Artwork');
-                                        }),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 10),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.currency_rupee, color: Colors.grey),
-                          onPressed: () {
-                            _sendMediaMessage('Payment', '₹100.00 Quick UPI Transfer');
-                          },
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.camera_alt_outlined, color: Colors.grey),
-                          onPressed: () async {
-                            final picker = ImagePicker();
-                            final photo = await picker.pickImage(source: ImageSource.camera);
-                            if (photo != null) {
-                              _sendMediaMessage('Camera Photo', photo.path);
-                            }
-                          },
-                        ),
-                      ],
-                    ),
+                  child: TextField(
+                    controller: _msgCtrl,
+                    decoration: const InputDecoration(hintText: 'Message', border: OutlineInputBorder()),
                   ),
                 ),
-                const SizedBox(width: 8),
-                CircleAvatar(
-                  radius: 24,
-                  backgroundColor: const Color(0xFF1E88E5),
-                  child: IconButton(
-                    icon: Icon(_msgCtrl.text.isEmpty ? Icons.mic : Icons.send, color: Colors.white),
-                    onPressed: () {
-                      if (_msgCtrl.text.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Voice Note Recorded & Sent')));
-                        _sendMediaMessage('Voice Note', 'Audio Message (0:15)');
-                      } else {
-                        _send();
-                      }
-                    },
-                  ),
+                IconButton(
+                  icon: const Icon(Icons.send, color: Color(0xFF1E88E5)),
+                  onPressed: _send,
                 ),
               ],
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class UserProfileScreen extends StatelessWidget {
+  final String receiverPhone;
+  final String receiverName;
+  const UserProfileScreen({super.key, required this.receiverPhone, required this.receiverName});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(receiverName)),
+      body: Center(child: Text(receiverPhone)),
+    );
+  }
+}
+
+class CallScreen extends StatelessWidget {
+  final String receiverName;
+  final String receiverPhone;
+  final bool isVideoCall;
+  const CallScreen({super.key, required this.receiverName, required this.receiverPhone, required this.isVideoCall});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(receiverName)),
+      body: const Center(child: Text('Call Screen')),
+    );
+  }
+}
+
+class ProfileScreen extends StatelessWidget {
+  final String myPhone;
+  const ProfileScreen({super.key, required this.myPhone});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(child: Text('Profile: $myPhone')),
     );
   }
 }
