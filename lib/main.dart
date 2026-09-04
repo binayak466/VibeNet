@@ -2476,6 +2476,83 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
   }
 }
 
+class QrCodeScreen extends StatelessWidget {
+  final String myPhone;
+  const QrCodeScreen({super.key, required this.myPhone});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0B141A),
+      appBar: AppBar(
+        title: const Text('QR code', style: TextStyle(color: Colors.white)),
+        backgroundColor: const Color(0xFF0B141A),
+        iconTheme: const IconThemeData(color: Colors.white),
+        actions: [
+          IconButton(icon: const Icon(Icons.share), onPressed: () {}),
+          IconButton(icon: const Icon(Icons.more_vert), onPressed: () {}),
+        ],
+      ),
+      body: Column(
+        children: [
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: const [
+              Text('MY CODE', style: TextStyle(color: Color(0xFF00A884), fontWeight: FontWeight.bold)),
+              SizedBox(width: 40),
+              Text('SCAN CODE', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          const Spacer(),
+          Center(
+            child: Container(
+              width: 320,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: const Color(0xFF111B21),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const CircleAvatar(
+                    radius: 30,
+                    backgroundColor: Color(0xFF00A884),
+                    child: Icon(Icons.person, size: 35, color: Colors.white),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text('Binayak', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  const Text('VibeNet contact', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                  const SizedBox(height: 24),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.qr_code_2, size: 200, color: Colors.black),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const Spacer(),
+          Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Text(
+              'Your QR code is private. If you share it with someone, they can scan it with their camera to add you as a contact.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey[400], fontSize: 13),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class ProfileScreen extends StatefulWidget {
   final String myPhone;
   const ProfileScreen({super.key, required this.myPhone});
@@ -2485,7 +2562,6 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  String _profileName = '';
   String _photoUrl = '';
 
   @override
@@ -2499,7 +2575,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (doc.exists && doc.data() != null) {
       final data = doc.data()!;
       setState(() {
-        _profileName = data['name'] ?? 'User';
         _photoUrl = data['photoUrl'] ?? '';
       });
     }
@@ -2545,13 +2620,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       body: ListView(
         padding: const EdgeInsets.symmetric(vertical: 10),
         children: [
-          InkWell(
-            onTap: _pickAndUploadProfilePhoto,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: Row(
-                children: [
-                  CircleAvatar(
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: Row(
+              children: [
+                InkWell(
+                  onTap: _pickAndUploadProfilePhoto,
+                  child: CircleAvatar(
                     radius: 35,
                     backgroundColor: const Color(0xFF1E88E5),
                     backgroundImage: _photoUrl.isNotEmpty
@@ -2559,20 +2634,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         : null,
                     child: _photoUrl.isEmpty ? const Icon(Icons.person, size: 35, color: Colors.white) : null,
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: InkWell(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const AccountSettingsScreen()),
+                      );
+                    },
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(_profileName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        const Text('Binayak', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 4),
-                        Text(maskPhoneNumber(widget.myPhone), style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                        Text('+91••••••6921', style: TextStyle(color: Colors.grey[400], fontSize: 13)),
                       ],
                     ),
                   ),
-                  const Icon(Icons.qr_code, color: Color(0xFF1E88E5)),
-                ],
-              ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.qr_code, color: Color(0xFF1E88E5)),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (c) => QrCodeScreen(myPhone: widget.myPhone)),
+                    );
+                  },
+                ),
+              ],
             ),
           ),
           const Divider(),
