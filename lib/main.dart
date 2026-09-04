@@ -11,6 +11,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:path_provider/path_provider.dart';
+import 'account_settings_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
