@@ -33,39 +33,39 @@ final Map<String, Map<String, String>> localizedStrings = {
     'terms_desc': 'Simple. Secure. All-in-one messaging, social & payments.',
     'agree_continue': 'AGREE AND CONTINUE',
     'enter_phone': 'Enter your phone number',
-    'verify_desc': 'VibeNet will need to verify your phone number.',
+    'verify_desc': 'VibeNet will need to verify your phone number via SMS.',
     'phone_hint': 'phone number',
-    'next': 'Next',
-    'verify': 'Next / Verify',
-    'enter_code': 'Enter 6-digit Code (123456)',
-    'invalid_phone': 'Please enter a valid phone number',
-    'wrong_otp': 'Wrong OTP! Enter: 123456',
+    'next': 'Send OTP',
+    'verify': 'Verify & Login',
+    'enter_code': 'Enter 6-digit OTP received via SMS',
+    'invalid_phone': 'Please enter a valid phone number with country code',
+    'wrong_otp': 'Please enter a valid 6-digit OTP',
   },
   'bn': {
     'welcome': 'VibeNet-এ স্বাগতম',
     'terms_desc': 'চ্যাট, সোশ্যাল ফিড এবং পেমেন্ট একসাথে একটি অ্যাপে।',
     'agree_continue': 'সম্মতি দিন ও এগিয়ে যান',
     'enter_phone': 'আপনার মোবাইল নম্বর দিন',
-    'verify_desc': 'VibeNet আপনার নম্বর যাচাই করার জন্য একটি ওটিপি পাঠাবে।',
+    'verify_desc': 'VibeNet এসএমএসের মাধ্যমে আপনার নম্বর যাচাই করবে।',
     'phone_hint': 'ফোন নম্বর',
-    'next': 'পরবর্তী',
+    'next': 'ওটিপি পাঠান',
     'verify': 'যাচাই করুন',
-    'enter_code': '৬ সংখ্যার কোড দিন (123456)',
+    'enter_code': 'এসএমএসে আসা ৬ সংখ্যার ওটিপি দিন',
     'invalid_phone': 'সঠিক মোবাইল নম্বর দিন',
-    'wrong_otp': 'ভুল OTP! সঠিক কোডটি দিন: 123456',
+    'wrong_otp': 'সঠিক ৬ সংখ্যার ওটিপি দিন',
   },
   'hi': {
     'welcome': 'VibeNet में आपका स्वागत है',
     'terms_desc': 'चैट, सोशल फीड और भुगतान एक ही ऐप में।',
     'agree_continue': 'स्वीकार करें और जारी रखें',
     'enter_phone': 'अपना फ़ोन नंबर दर्ज करें',
-    'verify_desc': 'VibeNet को आपका फ़ोन नंबर सत्यापित करना होगा।',
+    'verify_desc': 'VibeNet एसएमएस के माध्यम से आपके नंबर को सत्यापित करेगा।',
     'phone_hint': 'फ़ोन नंबर',
-    'next': 'आगे बढ़ें',
+    'next': 'OTP भेजें',
     'verify': 'सत्यापित करें',
-    'enter_code': '6 अंकों का कोड दर्ज करें (123456)',
+    'enter_code': 'SMS में प्राप्त 6 अंकों का OTP दर्ज करें',
     'invalid_phone': 'कृपया सही फ़ोन नंबर दर्ज करें',
-    'wrong_otp': 'गलत OTP! सही कोड दर्ज करें: 123456',
+    'wrong_otp': 'कृपया सही 6 अंकों का OTP दर्ज करें',
   },
 };
 
@@ -181,8 +181,9 @@ class _FirebaseInitWrapperState extends State<FirebaseInitWrapper> {
 
   Future<Widget> _checkLoginStatus() async {
     try {
-      final querySnapshot = await FirebaseFirestore.instance.collection('users').get();
-      if (querySnapshot.docs.isNotEmpty) {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final querySnapshot = await FirebaseFirestore.instance.collection('users').get();
         for (var doc in querySnapshot.docs) {
           final data = doc.data();
           if (data['phone'] != null) {
@@ -300,6 +301,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   bool _isOtpSent = false;
   String _fullPhoneNumber = '';
+  String _verificationId = '';
 
   final List<Map<String, String>> _countries = [
     {'name': 'India', 'code': '+91'},
@@ -318,63 +320,84 @@ class _LoginScreenState extends State<LoginScreen> {
     _selectedCountryCode = _countries[0]['code']!;
   }
 
-  void _sendOtp() {
+  void _sendOtp() async {
     final phone = _phoneController.text.trim();
     if (phone.length < 7) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('invalid_phone'))));
       return;
     }
     setState(() => _isLoading = true);
-    Future.delayed(const Duration(milliseconds: 500), () {
-      if (mounted) {
-        setState(() {
-          _fullPhoneNumber = '$_selectedCountryCode$phone';
-          _isOtpSent = true;
-          _isLoading = false;
-        });
-      }
-    });
+    _fullPhoneNumber = '$_selectedCountryCode$phone';
+
+    try {
+      await FirebaseAuth.instance.verifyPhoneNumber(
+        phoneNumber: _fullPhoneNumber,
+        verificationCompleted: (PhoneAuthCredential credential) async {
+          await FirebaseAuth.instance.signInWithCredential(credential);
+          _navigateToNext(_fullPhoneNumber);
+        },
+        verificationFailed: (FirebaseAuthException e) {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.message}')));
+        },
+        codeSent: (String verificationId, int? resendToken) {
+          setState(() {
+            _verificationId = verificationId;
+            _isOtpSent = true;
+            _isLoading = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('OTP sent successfully via SMS!')));
+        },
+        codeAutoRetrievalTimeout: (String verificationId) {
+          _verificationId = verificationId;
+        },
+      );
+    } catch (e) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to send OTP: $e')));
+    }
   }
 
   void _verifyOtp() async {
     final otp = _otpController.text.trim();
-    if (otp != '123456') {
+    if (otp.length != 6) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('wrong_otp'))));
       return;
     }
     setState(() => _isLoading = true);
 
     try {
-      await FirebaseAuth.instance.signInAnonymously();
-      final newSessionToken = 'session_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(999999)}';
+      PhoneAuthCredential credential = PhoneAuthProvider.credential(
+        verificationId: _verificationId,
+        smsCode: otp,
+      );
+      await FirebaseAuth.instance.signInWithCredential(credential);
+      _navigateToNext(_fullPhoneNumber);
+    } catch (e) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Invalid OTP! Please try again.')));
+    }
+  }
 
-      final existingDoc = await FirebaseFirestore.instance.collection('users').doc(_fullPhoneNumber).get();
-      
+  void _navigateToNext(String phone) async {
+    final newSessionToken = 'session_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(999999)}';
+    final existingDoc = await FirebaseFirestore.instance.collection('users').doc(phone).get();
+    
+    if (mounted) {
       if (existingDoc.exists && existingDoc.data() != null) {
-        await FirebaseFirestore.instance.collection('users').doc(_fullPhoneNumber).update({
+        await FirebaseFirestore.instance.collection('users').doc(phone).update({
           'activeSessionToken': newSessionToken,
           'sessionToken': newSessionToken,
           'lastActive': FieldValue.serverTimestamp(),
         });
-
-        if (mounted) {
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(builder: (context) => MainDashboardScreen(myPhone: _fullPhoneNumber, currentSessionToken: newSessionToken)),
-            (r) => false,
-          );
-        }
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => MainDashboardScreen(myPhone: phone, currentSessionToken: newSessionToken)),
+          (r) => false,
+        );
       } else {
-        if (mounted) {
-          Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => ProfilePhotoStepScreen(myPhone: _fullPhoneNumber, sessionToken: newSessionToken)));
-        }
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => ProfilePhotoStepScreen(myPhone: phone, sessionToken: newSessionToken)));
       }
-    } catch (_) {
-      if (mounted) {
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => ProfilePhotoStepScreen(myPhone: _fullPhoneNumber, sessionToken: '')));
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -2347,28 +2370,26 @@ class _CallScreenState extends State<CallScreen> {
   }
 }
 
-class ProfileScreen extends StatefulWidget {
+class PrivacySettingsScreen extends StatefulWidget {
   final String myPhone;
-  const ProfileScreen({super.key, required this.myPhone});
+  const PrivacySettingsScreen({super.key, required this.myPhone});
 
   @override
-  State<ProfileScreen> createState() => _ProfileScreenState();
+  State<PrivacySettingsScreen> createState() => _PrivacySettingsScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
   bool _biometricEnabled = false;
   String _profilePhotoPrivacy = 'everyone';
   String _lastSeenPrivacy = 'everyone';
-  String _profileName = '';
-  String _photoUrl = '';
 
   @override
   void initState() {
     super.initState();
-    _loadUserData();
+    _loadPrivacyData();
   }
 
-  void _loadUserData() async {
+  void _loadPrivacyData() async {
     final doc = await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).get();
     if (doc.exists && doc.data() != null) {
       final data = doc.data()!;
@@ -2376,8 +2397,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _biometricEnabled = data['biometricEnabled'] ?? false;
         _profilePhotoPrivacy = data['profilePhotoPrivacy'] ?? 'everyone';
         _lastSeenPrivacy = data['lastSeenPrivacy'] ?? 'everyone';
-        _profileName = data['name'] ?? 'User';
-        _photoUrl = data['photoUrl'] ?? '';
       });
     }
   }
@@ -2395,6 +2414,94 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _updateLastSeenPrivacy(String val) async {
     setState(() => _lastSeenPrivacy = val);
     await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({'lastSeenPrivacy': val});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Privacy'),
+        backgroundColor: const Color(0xFF1E88E5),
+        foregroundColor: Colors.white,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        children: [
+          SwitchListTile(
+            secondary: const Icon(Icons.fingerprint, color: Color(0xFF1E88E5)),
+            title: const Text('Biometric App Lock', style: TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: const Text('Unlock VibeNet using fingerprint / face ID'),
+            value: _biometricEnabled,
+            activeColor: const Color(0xFF1E88E5),
+            onChanged: _updateBiometric,
+          ),
+          const Divider(),
+          ListTile(
+            title: const Text('Profile Photo Privacy', style: TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: Text('Current setting: $_profilePhotoPrivacy'),
+            trailing: DropdownButton<String>(
+              value: _profilePhotoPrivacy,
+              dropdownColor: Colors.grey[900],
+              items: const [
+                DropdownMenuItem(value: 'everyone', child: Text('Everyone')),
+                DropdownMenuItem(value: 'contacts', child: Text('My Contacts')),
+                DropdownMenuItem(value: 'nobody', child: Text('Only Me')),
+              ],
+              onChanged: (val) {
+                if (val != null) _updateProfilePhotoPrivacy(val);
+              },
+            ),
+          ),
+          const Divider(),
+          ListTile(
+            title: const Text('Last Seen Privacy', style: TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: Text('Current setting: $_lastSeenPrivacy'),
+            trailing: DropdownButton<String>(
+              value: _lastSeenPrivacy,
+              dropdownColor: Colors.grey[900],
+              items: const [
+                DropdownMenuItem(value: 'everyone', child: Text('Everyone')),
+                DropdownMenuItem(value: 'contacts', child: Text('My Contacts')),
+                DropdownMenuItem(value: 'nobody', child: Text('Only Me')),
+              ],
+              onChanged: (val) {
+                if (val != null) _updateLastSeenPrivacy(val);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class ProfileScreen extends StatefulWidget {
+  final String myPhone;
+  const ProfileScreen({super.key, required this.myPhone});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  String _profileName = '';
+  String _photoUrl = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  void _loadUserData() async {
+    final doc = await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).get();
+    if (doc.exists && doc.data() != null) {
+      final data = doc.data()!;
+      setState(() {
+        _profileName = data['name'] ?? 'User';
+        _photoUrl = data['photoUrl'] ?? '';
+      });
+    }
   }
 
   Future<void> _pickAndUploadProfilePhoto() async {
@@ -2495,8 +2602,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ListTile(
             leading: const Icon(Icons.lock, color: Color(0xFF1E88E5)),
             title: const Text('Privacy'),
-            subtitle: const Text('Blocked accounts, disappearing messages'),
-            onTap: () => _showFeatureMessage('Privacy'),
+            subtitle: const Text('Blocked accounts, disappearing messages, biometric'),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (c) => PrivacySettingsScreen(myPhone: widget.myPhone),
+                ),
+              );
+            },
           ),
           ListTile(
             leading: const Icon(Icons.list_alt, color: Color(0xFF1E88E5)),
@@ -2565,47 +2679,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             title: const Text('Help and feedback'),
             subtitle: const Text('Help centre, contact us, privacy policy'),
             onTap: () => _showFeatureMessage('Help and feedback'),
-          ),
-          const Divider(),
-          SwitchListTile(
-            secondary: const Icon(Icons.fingerprint, color: Color(0xFF1E88E5)),
-            title: const Text('Biometric App Lock', style: TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: const Text('Unlock VibeNet using fingerprint / face ID'),
-            value: _biometricEnabled,
-            activeColor: const Color(0xFF1E88E5),
-            onChanged: _updateBiometric,
-          ),
-          ListTile(
-            title: const Text('Profile Photo Privacy', style: TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Text('Current setting: $_profilePhotoPrivacy'),
-            trailing: DropdownButton<String>(
-              value: _profilePhotoPrivacy,
-              dropdownColor: Colors.grey[900],
-              items: const [
-                DropdownMenuItem(value: 'everyone', child: Text('Everyone')),
-                DropdownMenuItem(value: 'contacts', child: Text('My Contacts')),
-                DropdownMenuItem(value: 'nobody', child: Text('Only Me')),
-              ],
-              onChanged: (val) {
-                if (val != null) _updateProfilePhotoPrivacy(val);
-              },
-            ),
-          ),
-          ListTile(
-            title: const Text('Last Seen Privacy', style: TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Text('Current setting: $_lastSeenPrivacy'),
-            trailing: DropdownButton<String>(
-              value: _lastSeenPrivacy,
-              dropdownColor: Colors.grey[900],
-              items: const [
-                DropdownMenuItem(value: 'everyone', child: Text('Everyone')),
-                DropdownMenuItem(value: 'contacts', child: Text('My Contacts')),
-                DropdownMenuItem(value: 'nobody', child: Text('Only Me')),
-              ],
-              onChanged: (val) {
-                if (val != null) _updateLastSeenPrivacy(val);
-              },
-            ),
           ),
           const Divider(),
           ListTile(
