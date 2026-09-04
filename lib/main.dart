@@ -2598,7 +2598,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
             leading: const Icon(Icons.key, color: Color(0xFF1E88E5)),
             title: const Text('Account'),
             subtitle: const Text('Security notifications, change number'),
-            onTap: () => _showFeatureMessage('Account'),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const AccountSettingsScreen(),
+                ),
+              );
+            },
           ),
           ListTile(
             leading: const Icon(Icons.lock, color: Color(0xFF1E88E5)),
