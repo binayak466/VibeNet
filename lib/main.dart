@@ -1218,7 +1218,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   },
                 ),
                 ListTile(
-                  leading: constIcon(Icons.fingerprint, color: Color(0xFF1E88E5)),
+                  leading: const Icon(Icons.fingerprint, color: Color(0xFF1E88E5)),
                   title: const Text('Biometric App Lock'),
                   subtitle: Text(_isBiometricLocked ? 'Enabled' : 'Disabled'),
                   trailing: Switch(
@@ -1475,6 +1475,21 @@ class _ConversationScreenState extends State<ConversationScreen> {
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Starting Voice Call...')));
             },
+          ),
+          PopupMenuButton<String>(
+            onsection: (value) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$value clicked')));
+            },
+            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+              const PopupMenuItem<String>(value: 'New group', child: Text('New group')),
+              const PopupMenuItem<String>(value: 'View contact', child: Text('View contact')),
+              const PopupMenuItem<String>(value: 'Search', child: Text('Search')),
+              const PopupMenuItem<String>(value: 'Media, links, and docs', child: Text('Media, links, and docs')),
+              const PopupMenuItem<String>(value: 'Mute notifications', child: Text('Mute notifications')),
+              const PopupMenuItem<String>(value: 'Disappearing messages', child: Text('Disappearing messages')),
+              const PopupMenuItem<String>(value: 'Chat theme', child: Text('Chat theme')),
+              const PopupMenuItem<String>(value: 'More', child: Text('More')),
+            ],
           ),
         ],
       ),
