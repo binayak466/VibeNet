@@ -831,10 +831,23 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
                 children: [
                   Row(
                     children: [
-                      const CircleAvatar(
-                        radius: 18,
-                        backgroundColor: Color(0xFF1E88E5),
-                        child: Icon(Icons.person, color: Colors.white, size: 20),
+                      StreamBuilder<DocumentSnapshot>(
+                        stream: FirebaseFirestore.instance.collection('users').doc(widget.myPhone).snapshots(),
+                        builder: (context, snapshot) {
+                          String photoUrl = '';
+                          if (snapshot.hasData && snapshot.data!.exists) {
+                            final data = snapshot.data!.data() as Map<String, dynamic>?;
+                            photoUrl = data?['photoUrl'] ?? '';
+                          }
+                          return CircleAvatar(
+                            radius: 18,
+                            backgroundColor: const Color(0xFF1E88E5),
+                            backgroundImage: photoUrl.isNotEmpty
+                                ? (photoUrl.startsWith('http') ? NetworkImage(photoUrl) : FileImage(File(photoUrl)) as ImageProvider)
+                                : null,
+                            child: photoUrl.isEmpty ? const Icon(Icons.person, color: Colors.white, size: 20) : null,
+                          );
+                        },
                       ),
                       const SizedBox(width: 10),
                       _isSearching
@@ -1205,7 +1218,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   },
                 ),
                 ListTile(
-                  leading: const Icon(Icons.fingerprint, color: Color(0xFF1E88E5)),
+                  leading: constIcon(Icons.fingerprint, color: Color(0xFF1E88E5)),
                   title: const Text('Biometric App Lock'),
                   subtitle: Text(_isBiometricLocked ? 'Enabled' : 'Disabled'),
                   trailing: Switch(
