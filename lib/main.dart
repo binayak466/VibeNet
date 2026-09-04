@@ -1487,6 +1487,63 @@ class _GroupConversationScreenState extends State<GroupConversationScreen> {
     });
   }
 
+  void _showGroupOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(widget.groupName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.admin_panel_settings, color: Color(0xFF1E88E5)),
+              title: const Text('Group Admin'),
+              subtitle: const Text('You are the creator & admin'),
+              onTap: () {
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('You are the Group Admin')));
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.person_add, color: Color(0xFF1E88E5)),
+              title: const Text('Add Participants'),
+              subtitle: const Text('Add members to group'),
+              onTap: () {
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Participant added successfully!')));
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.exit_to_app, color: Colors.orange),
+              title: const Text('Exit Group'),
+              onTap: () async {
+                Navigator.pop(ctx);
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('You have exited the group')));
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_forever, color: Colors.red),
+              title: const Text('Delete Group', style: TextStyle(color: Colors.red)),
+              onTap: () async {
+                Navigator.pop(ctx);
+                await FirebaseFirestore.instance.collection('groups').doc(widget.groupId).delete();
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Group deleted successfully')));
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1504,6 +1561,12 @@ class _GroupConversationScreenState extends State<GroupConversationScreen> {
         ),
         backgroundColor: const Color(0xFF1E88E5),
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.more_vert),
+            onPressed: () => _showGroupOptions(context),
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -2082,10 +2145,15 @@ class _ConversationScreenState extends State<ConversationScreen> {
                   backgroundColor: const Color(0xFF1E88E5),
                   child: IconButton(
                     icon: Icon(_msgCtrl.text.isEmpty ? Icons.mic : Icons.send, color: Colors.white),
-                    onPressed: () {
+                    onPressed: () async {
                       if (_msgCtrl.text.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Voice Note Recorded & Sent')));
-                        _sendMediaMessage('Voice Note', 'Audio Message (0:15)');
+                        var micStatus = await Permission.microphone.request();
+                        if (micStatus.isGranted) {
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Voice Note Recorded & Sent')));
+                          _sendMediaMessage('Voice Note', 'Audio Message (0:15)');
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Microphone permission is required to send voice notes')));
+                        }
                       } else {
                         _send();
                       }
