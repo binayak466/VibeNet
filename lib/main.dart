@@ -1029,6 +1029,51 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
   }
 }
 
+class UserProfileScreen extends StatelessWidget {
+  final String receiverPhone;
+  final String receiverName;
+  const UserProfileScreen({super.key, required this.receiverPhone, required this.receiverName});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(receiverName)),
+      body: FutureBuilder<DocumentSnapshot>(
+        future: FirebaseFirestore.instance.collection('users').doc(receiverPhone).get(),
+        builder: (context, snapshot) {
+          String photoUrl = '';
+          if (snapshot.hasData && snapshot.data!.exists) {
+            final data = snapshot.data!.data() as Map<String, dynamic>?;
+            photoUrl = data?['photoUrl'] ?? '';
+          }
+
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircleAvatar(
+                    radius: 60,
+                    backgroundImage: photoUrl.isNotEmpty
+                        ? (photoUrl.startsWith('http') ? NetworkImage(photoUrl) : FileImage(File(photoUrl)) as ImageProvider)
+                        : null,
+                    child: photoUrl.isEmpty ? const Icon(Icons.person, size: 60, color: Colors.white) : null,
+                  ),
+                  const SizedBox(height: 20),
+                  Text(receiverName, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  Text(maskPhoneNumber(receiverPhone), style: const TextStyle(fontSize: 16, color: Colors.grey)),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
 class ProfileScreen extends StatefulWidget {
   final String myPhone;
   const ProfileScreen({super.key, required this.myPhone});
@@ -1478,7 +1523,19 @@ class _ConversationScreenState extends State<ConversationScreen> {
           ),
           PopupMenuButton<String>(
             onSelected: (value) {
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$value clicked')));
+              if (value == 'View contact') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (c) => UserProfileScreen(
+                      receiverPhone: widget.receiverPhone,
+                      receiverName: widget.receiverName,
+                    ),
+                  ),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$value clicked')));
+              }
             },
             itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
               const PopupMenuItem<String>(value: 'New group', child: Text('New group')),
