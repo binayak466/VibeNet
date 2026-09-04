@@ -1085,18 +1085,9 @@ class CallScreen extends StatefulWidget {
 }
 
 class _CallScreenState extends State<CallScreen> {
-  String _callStatus = 'Calling...';
-
-  @override
-  void initState() {
-    super.initState();
-    Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) setState(() => _callStatus = 'Ringing...');
-    });
-    Future.delayed(const Duration(seconds: 6), () {
-      if (mounted) setState(() => _callStatus = 'Connected');
-    });
-  }
+  bool _isMuted = false;
+  bool _isSpeakerOn = false;
+  bool _isVideoOff = false;
 
   @override
   Widget build(BuildContext context) {
@@ -1112,7 +1103,7 @@ class _CallScreenState extends State<CallScreen> {
                 children: [
                   Text(widget.receiverName, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.white)),
                   const SizedBox(height: 8),
-                  Text(_callStatus, style: const TextStyle(fontSize: 16, color: Colors.white70)),
+                  const Text('Calling...', style: TextStyle(fontSize: 16, color: Colors.white70)),
                 ],
               ),
             ),
@@ -1124,10 +1115,31 @@ class _CallScreenState extends State<CallScreen> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.only(bottom: 50.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              padding: const EdgeInsets.only(bottom: 40.0),
+              child: Column(
                 children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IconButton(
+                        icon: Icon(_isMuted ? Icons.mic_off : Icons.mic, color: Colors.white, size: 30),
+                        onPressed: () => setState(() => _isMuted = !_isMuted),
+                      ),
+                      const SizedBox(width: 30),
+                      IconButton(
+                        icon: Icon(_isSpeakerOn ? Icons.volume_up : Icons.volume_down, color: Colors.white, size: 30),
+                        onPressed: () => setState(() => _isSpeakerOn = !_isSpeakerOn),
+                      ),
+                      if (widget.isVideoCall) ...[
+                        const SizedBox(width: 30),
+                        IconButton(
+                          icon: Icon(_isVideoOff ? Icons.videocam_off : Icons.videocam, color: Colors.white, size: 30),
+                          onPressed: () => setState(() => _isVideoOff = !_isVideoOff),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 30),
                   FloatingActionButton(
                     backgroundColor: Colors.red,
                     onPressed: () => Navigator.pop(context),
