@@ -1850,6 +1850,40 @@ class _ConversationScreenState extends State<ConversationScreen> {
         ),
         backgroundColor: const Color(0xFF1E88E5),
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.call),
+            tooltip: 'Voice Call',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (c) => CallScreen(
+                    receiverName: widget.receiverName,
+                    receiverPhone: widget.receiverPhone,
+                    isVideoCall: false,
+                  ),
+                ),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.videocam),
+            tooltip: 'Video Call',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (c) => CallScreen(
+                    receiverName: widget.receiverName,
+                    receiverPhone: widget.receiverPhone,
+                    isVideoCall: true,
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -2185,7 +2219,7 @@ class CallScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(receiverName)),
-      body: const Center(child: Text('Call Screen')),
+      body: Center(child: Text(isVideoCall ? 'Video Call with $receiverName' : 'Voice Call with $receiverName', style: const TextStyle(fontSize: 18))),
     );
   }
 }
@@ -2200,6 +2234,7 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   bool _biometricEnabled = false;
+  String _profilePhotoPrivacy = 'everyone';
   String _lastSeenPrivacy = 'everyone';
   String _profileName = '';
   String _photoUrl = '';
@@ -2216,6 +2251,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final data = doc.data()!;
       setState(() {
         _biometricEnabled = data['biometricEnabled'] ?? false;
+        _profilePhotoPrivacy = data['profilePhotoPrivacy'] ?? 'everyone';
         _lastSeenPrivacy = data['lastSeenPrivacy'] ?? 'everyone';
         _profileName = data['name'] ?? 'User';
         _photoUrl = data['photoUrl'] ?? '';
@@ -2228,7 +2264,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({'biometricEnabled': val});
   }
 
-  void _updatePrivacy(String val) async {
+  void _updateProfilePhotoPrivacy(String val) async {
+    setState(() => _profilePhotoPrivacy = val);
+    await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({'profilePhotoPrivacy': val});
+  }
+
+  void _updateLastSeenPrivacy(String val) async {
     setState(() => _lastSeenPrivacy = val);
     await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({'lastSeenPrivacy': val});
   }
@@ -2308,6 +2349,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const Divider(),
           ListTile(
+            title: const Text('Profile Photo Privacy', style: TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: Text('Current setting: $_profilePhotoPrivacy'),
+            trailing: DropdownButton<String>(
+              value: _profilePhotoPrivacy,
+              dropdownColor: Colors.grey[900],
+              items: const [
+                DropdownMenuItem(value: 'everyone', child: Text('Everyone')),
+                DropdownMenuItem(value: 'contacts', child: Text('My Contacts')),
+                DropdownMenuItem(value: 'nobody', child: Text('Only Me')),
+              ],
+              onChanged: (val) {
+                if (val != null) _updateProfilePhotoPrivacy(val);
+              },
+            ),
+          ),
+          const Divider(),
+          ListTile(
             title: const Text('Last Seen Privacy', style: TextStyle(fontWeight: FontWeight.bold)),
             subtitle: Text('Current setting: $_lastSeenPrivacy'),
             trailing: DropdownButton<String>(
@@ -2316,10 +2374,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
               items: const [
                 DropdownMenuItem(value: 'everyone', child: Text('Everyone')),
                 DropdownMenuItem(value: 'contacts', child: Text('My Contacts')),
-                DropdownMenuItem(value: 'nobody', child: Text('Nobody')),
+                DropdownMenuItem(value: 'nobody', child: Text('Only Me')),
               ],
               onChanged: (val) {
-                if (val != null) _updatePrivacy(val);
+                if (val != null) _updateLastSeenPrivacy(val);
               },
             ),
           ),
