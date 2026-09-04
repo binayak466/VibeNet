@@ -1074,6 +1074,75 @@ class UserProfileScreen extends StatelessWidget {
   }
 }
 
+class CallScreen extends StatefulWidget {
+  final String receiverName;
+  final String receiverPhone;
+  final bool isVideoCall;
+  const CallScreen({super.key, required this.receiverName, required this.receiverPhone, required this.isVideoCall});
+
+  @override
+  State<CallScreen> createState() => _CallScreenState();
+}
+
+class _CallScreenState extends State<CallScreen> {
+  String _callStatus = 'Calling...';
+
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _callStatus = 'Ringing...');
+    });
+    Future.delayed(const Duration(seconds: 6), () {
+      if (mounted) setState(() => _callStatus = 'Connected');
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black87,
+      body: SafeArea(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 40.0),
+              child: Column(
+                children: [
+                  Text(widget.receiverName, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.white)),
+                  const SizedBox(height: 8),
+                  Text(_callStatus, style: const TextStyle(fontSize: 16, color: Colors.white70)),
+                ],
+              ),
+            ),
+            Center(
+              child: CircleAvatar(
+                radius: 70,
+                backgroundColor: const Color(0xFF1E88E5),
+                child: Icon(widget.isVideoCall ? Icons.videocam : Icons.phone, size: 60, color: Colors.white),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 50.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  FloatingActionButton(
+                    backgroundColor: Colors.red,
+                    onPressed: () => Navigator.pop(context),
+                    child: const Icon(Icons.call_end, color: Colors.white, size: 30),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class ProfileScreen extends StatefulWidget {
   final String myPhone;
   const ProfileScreen({super.key, required this.myPhone});
@@ -1512,13 +1581,31 @@ class _ConversationScreenState extends State<ConversationScreen> {
           IconButton(
             icon: const Icon(Icons.videocam),
             onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Starting Video Call...')));
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (c) => CallScreen(
+                    receiverName: widget.receiverName,
+                    receiverPhone: widget.receiverPhone,
+                    isVideoCall: true,
+                  ),
+                ),
+              );
             },
           ),
           IconButton(
             icon: const Icon(Icons.call),
             onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Starting Voice Call...')));
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (c) => CallScreen(
+                    receiverName: widget.receiverName,
+                    receiverPhone: widget.receiverPhone,
+                    isVideoCall: false,
+                  ),
+                ),
+              );
             },
           ),
           PopupMenuButton<String>(
