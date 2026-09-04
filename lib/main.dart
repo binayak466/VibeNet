@@ -2226,70 +2226,118 @@ class _CallScreenState extends State<CallScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: const Color(0xFF111B21),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 40.0, horizontal: 24.0),
+          padding: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                children: [
-                  const Text(
-                    'VibeNet Secure Call',
-                    style: TextStyle(color: Colors.white70, fontSize: 14),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    widget.receiverName,
-                    style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    widget.isVideoCall ? 'Video calling...' : 'Ringing...',
-                    style: const TextStyle(color: Colors.greenAccent, fontSize: 14),
-                  ),
-                ],
-              ),
-              Column(
-                children: [
-                  CircleAvatar(
-                    radius: 70,
-                    backgroundColor: const Color(0xFF1E88E5),
-                    child: Icon(
-                      widget.isVideoCall ? Icons.videocam : Icons.person,
-                      size: 70,
-                      color: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   IconButton(
-                    icon: Icon(_isMuted ? Icons.mic_off : Icons.mic, color: Colors.white, size: 28),
-                    onPressed: () {
-                      setState(() => _isMuted = !_isMuted);
-                    },
+                    icon: const Icon(Icons.lock, color: Colors.white, size: 20),
+                    onPressed: () {},
+                  ),
+                  Column(
+                    children: [
+                      Text(
+                        widget.receiverName,
+                        style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 2),
+                      const Text(
+                        'Ringing...',
+                        style: TextStyle(color: Colors.white70, fontSize: 13),
+                      ),
+                    ],
                   ),
                   IconButton(
-                    icon: Icon(_isSpeakerOn ? Icons.volume_up : Icons.volume_down, color: Colors.white, size: 28),
-                    onPressed: () {
-                      setState(() => _isSpeakerOn = !_isSpeakerOn);
-                    },
-                  ),
-                  CircleAvatar(
-                    radius: 30,
-                    backgroundColor: Colors.red,
-                    child: IconButton(
-                      icon: const Icon(Icons.call_end, color: Colors.white, size: 30),
-                      onPressed: () {
-                        Navigator.pop(context);
-                      },
-                    ),
+                    icon: const Icon(Icons.person_add, color: Colors.white, size: 22),
+                    onPressed: () {},
                   ),
                 ],
+              ),
+              const CircleAvatar(
+                radius: 90,
+                backgroundColor: Colors.grey,
+                child: Icon(Icons.person, size: 90, color: Colors.white70),
+              ),
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1F2C34),
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        Column(
+                          children: [
+                            IconButton(
+                              icon: Icon(_isSpeakerOn ? Icons.volume_up : Icons.volume_down, color: Colors.white),
+                              onPressed: () => setState(() => _isSpeakerOn = !_isSpeakerOn),
+                            ),
+                            const Text('Speaker', style: TextStyle(color: Colors.white, fontSize: 12)),
+                          ],
+                        ),
+                        Column(
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.videocam, color: Colors.white),
+                              onPressed: () {},
+                            ),
+                            const Text('Video', style: TextStyle(color: Colors.white, fontSize: 12)),
+                          ],
+                        ),
+                        Column(
+                          children: [
+                            IconButton(
+                              icon: Icon(_isMuted ? Icons.mic_off : Icons.mic, color: Colors.white),
+                              onPressed: () => setState(() => _isMuted = !_isMuted),
+                            ),
+                            const Text('Mute', style: TextStyle(color: Colors.white, fontSize: 12)),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        Column(
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.more_horiz, color: Colors.white),
+                              onPressed: () {},
+                            ),
+                            const Text('More', style: TextStyle(color: Colors.white, fontSize: 12)),
+                          ],
+                        ),
+                        Column(
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.screen_share, color: Colors.white),
+                              onPressed: () {},
+                            ),
+                            const Text('Share', style: TextStyle(color: Colors.white, fontSize: 12)),
+                          ],
+                        ),
+                        CircleAvatar(
+                          radius: 28,
+                          backgroundColor: Colors.red,
+                          child: IconButton(
+                            icon: const Icon(Icons.call_end, color: Colors.white, size: 28),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
