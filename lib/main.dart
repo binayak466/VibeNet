@@ -545,6 +545,7 @@ class _ProfileNameStepScreenState extends State<ProfileNameStepScreen> {
       'activeSessionToken': widget.sessionToken,
       'lastActive': FieldValue.serverTimestamp(),
       'biometricEnabled': false,
+      'isDarkMode': true,
     };
     await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).set(data, SetOptions(merge: true));
 
@@ -835,6 +836,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
     _requestAppPermissionsOnStartup();
     _updateActiveStatus();
     _checkBiometricOnStartup();
+    _loadUserThemePreference();
 
     FirebaseFirestore.instance.collection('users').doc(widget.myPhone).snapshots().listen((doc) {
       if (doc.exists && doc.data() != null) {
@@ -846,6 +848,18 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
         }
       }
     });
+  }
+
+  void _loadUserThemePreference() async {
+    try {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).get();
+      if (doc.exists && doc.data() != null) {
+        final bool isDark = doc.data()!['isDarkMode'] ?? true;
+        setState(() {
+          appThemeMode.value = isDark ? ThemeMode.dark : ThemeMode.light;
+        });
+      }
+    } catch (_) {}
   }
 
   void _requestAppPermissionsOnStartup() async {
@@ -2730,10 +2744,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
             trailing: Switch(
               value: appThemeMode.value == ThemeMode.dark,
               activeColor: const Color(0xFF1E88E5),
-              onChanged: (val) {
+              onChanged: (val) async {
                 setState(() {
                   appThemeMode.value = val ? ThemeMode.dark : ThemeMode.light;
                 });
+                try {
+                  await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({
+                    'isDarkMode': val,
+                  });
+                } catch (_) {}
               },
             ),
           ),
