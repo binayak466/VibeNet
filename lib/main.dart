@@ -1039,6 +1039,56 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
     );
   }
 
+  void _showGmailBackupDialog() {
+    final TextEditingController emailController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Google Drive Backup'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Enter your Gmail account to sync and backup your chats & media securely.'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: emailController,
+              keyboardType: TextInputType.emailAddress,
+              decoration: const InputDecoration(
+                labelText: 'Gmail Address',
+                hintText: 'example@gmail.com',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E88E5), foregroundColor: Colors.white),
+            onPressed: () async {
+              final email = emailController.text.trim();
+              if (email.isEmpty || !email.contains('@gmail.com')) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a valid Gmail address')));
+                return;
+              }
+              await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({
+                'backupGmail': email,
+              });
+              if (ctx.mounted) Navigator.pop(ctx);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Backup successful with $email!')));
+              }
+            },
+            child: const Text('Backup Now'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     _updateActiveStatus();
@@ -1087,6 +1137,11 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
                   ),
                   Row(
                     children: [
+                      IconButton(
+                        icon: const Icon(Icons.cloud_upload, color: Color(0xFF1E88E5)),
+                        tooltip: 'Gmail Backup',
+                        onPressed: _showGmailBackupDialog,
+                      ),
                       IconButton(
                         icon: Icon(_isSearching ? Icons.close : Icons.search),
                         onPressed: () {
