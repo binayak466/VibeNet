@@ -753,11 +753,17 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
   final TextEditingController _searchController = TextEditingController();
   final LocalAuthentication _localAuth = LocalAuthentication();
 
-  final List<String> _musicList = [
-    '🎵 Romantic Tune - Arijit Singh',
-    '🎶 Energetic Beat - EDM Mix',
-    '🎸 Acoustic Melody - Guitar Chill',
-    '🎹 Lo-Fi Study - Peaceful Vibe',
+  final List<String> _allSongs = [
+    '🎵 Kesariya - Brahmāstra (0:30)',
+    '🎶 Tum Hi Ho - Aashiqui 2 (0:30)',
+    '🎸 Raataan Lambiyan - Shershaah (0:30)',
+    '🎹 Apna Bana Le - Bhediya (0:30)',
+    '🎷 Levitating - Dua Lipa (0:30)',
+    '🎻 Perfect - Ed Sheeran (0:30)',
+    '🥁 Believer - Imagine Dragons (0:30)',
+    '🎧 Senorita - Shawn Mendes (0:30)',
+    '🎶 Dil Diyan Gallan - Tiger Zinda Hai (0:30)',
+    '🎵 Apna Har Din - Golmaal (0:30)',
   ];
 
   @override
@@ -837,21 +843,21 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
         shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
         builder: (ctx) => StatefulBuilder(
           builder: (context, setStateModal) {
-            String musicQuery = '';
-            final filteredMusic = _musicList.where((m) => m.toLowerCase().contains(musicQuery.toLowerCase())).toList();
+            String songSearchQuery = '';
+            final searchedSongs = _allSongs.where((song) => song.toLowerCase().contains(songSearchQuery.toLowerCase())).toList();
 
             return Container(
-              height: MediaQuery.of(context).size.height * 0.6,
+              height: MediaQuery.of(context).size.height * 0.65,
               padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
-                  const Text('Add Background Music', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                  const Text('Search & Select Song (30s)', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
                   TextField(
-                    onChanged: (v) => setStateModal(() => musicQuery = v),
+                    onChanged: (v) => setStateModal(() => songSearchQuery = v),
                     style: const TextStyle(color: Colors.white),
                     decoration: InputDecoration(
-                      hintText: 'Search songs...',
+                      hintText: 'Search any song...',
                       hintStyle: const TextStyle(color: Colors.grey),
                       prefixIcon: const Icon(Icons.search, color: Colors.grey),
                       filled: true,
@@ -863,18 +869,18 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
                   const SizedBox(height: 12),
                   Expanded(
                     child: ListView.builder(
-                      itemCount: filteredMusic.length,
+                      itemCount: searchedSongs.length,
                       itemBuilder: (context, index) {
-                        final music = filteredMusic[index];
+                        final song = searchedSongs[index];
                         return ListTile(
                           leading: const Icon(Icons.music_note, color: Color(0xFF1E88E5)),
-                          title: Text(music, style: const TextStyle(color: Colors.white)),
+                          title: Text(song, style: const TextStyle(color: Colors.white)),
                           onTap: () async {
                             Navigator.pop(ctx);
                             await FirebaseFirestore.instance.collection('statuses').add({
                               'phone': widget.myPhone,
                               'imagePath': pickedFile.path,
-                              'music': music,
+                              'music': song,
                               'timestamp': FieldValue.serverTimestamp(),
                             });
                             if (mounted) {
@@ -910,87 +916,125 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
     }
   }
 
-  void _viewStatus(String name, String? imagePath, String? music, {String? statusDocId}) {
+  void _showMyStatusesList(List<QueryDocumentSnapshot> myStatuses) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E1E1E),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(20),
+        height: MediaQuery.of(context).size.height * 0.5,
+        child: Column(
+          children: [
+            const Text('My Statuses', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            Expanded(
+              child: ListView.builder(
+                itemCount: myStatuses.length,
+                itemBuilder: (context, index) {
+                  final data = myStatuses[index].data() as Map<String, dynamic>;
+                  final imagePath = data['imagePath'] ?? '';
+                  final music = data['music'] ?? '';
+                  final docId = myStatuses[index].id;
+
+                  return Card(
+                    color: Colors.grey[900],
+                    margin: const EdgeInsets.symmetric(vertical: 6),
+                    child: ListTile(
+                      leading: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: imagePath.startsWith('http')
+                            ? Image.network(imagePath, width: 50, height: 50, fit: BoxFit.cover)
+                            : Image.file(File(imagePath), width: 50, height: 50, fit: BoxFit.cover),
+                      ),
+                      title: Text(music.isNotEmpty ? music : 'No Music', style: const TextStyle(color: Colors.white, fontSize: 14)),
+                      subtitle: const Text('Tap to view', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: () async {
+                          Navigator.pop(ctx);
+                          await FirebaseFirestore.instance.collection('statuses').doc(docId).delete();
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Status deleted successfully')));
+                          }
+                        },
+                      ),
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _viewSingleStatus('My Status', imagePath, music);
+                      },
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _viewSingleStatus(String name, String? imagePath, String? music) {
     showDialog(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setStateDialog) {
-          return Dialog(
-            backgroundColor: Colors.black,
-            insetPadding: EdgeInsets.zero,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                imagePath != null && imagePath.isNotEmpty
-                    ? (imagePath.startsWith('http') ? Image.network(imagePath, fit: BoxFit.contain) : Image.file(File(imagePath), fit: BoxFit.contain))
-                    : const Center(child: Text('No Status Available', style: TextStyle(color: Colors.white))),
-                
-                // Top Progress Bar
-                Positioned(
-                  top: 15,
-                  left: 10,
-                  right: 10,
-                  child: LinearProgressIndicator(
-                    value: 1.0,
-                    backgroundColor: Colors.grey,
-                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-                    minHeight: 3,
-                  ),
-                ),
-
-                Positioned(
-                  top: 35,
-                  left: 20,
-                  child: Row(
-                    children: [
-                      const CircleAvatar(radius: 16, child: Icon(Icons.person, size: 18)),
-                      const SizedBox(width: 10),
-                      Text(name, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                ),
-                if (music != null && music.isNotEmpty)
-                  Positioned(
-                    bottom: 40,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(20)),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.music_note, color: Colors.greenAccent, size: 18),
-                          const SizedBox(width: 8),
-                          Text(music, style: const TextStyle(color: Colors.white, fontSize: 14)),
-                        ],
-                      ),
-                    ),
-                  ),
-                Positioned(
-                  top: 35,
-                  right: 20,
-                  child: Row(
-                    children: [
-                      if (statusDocId != null)
-                        IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red, size: 26),
-                          onPressed: () async {
-                            await FirebaseFirestore.instance.collection('statuses').doc(statusDocId).delete();
-                            if (ctx.mounted) Navigator.pop(ctx);
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Status deleted')));
-                            }
-                          },
-                        ),
-                      IconButton(
-                        icon: const Icon(Icons.close, color: Colors.white, size: 28),
-                        onPressed: () => Navigator.pop(ctx),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.black,
+        insetPadding: EdgeInsets.zero,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            imagePath != null && imagePath.isNotEmpty
+                ? (imagePath.startsWith('http') ? Image.network(imagePath, fit: BoxFit.contain) : Image.file(File(imagePath), fit: BoxFit.contain))
+                : const Center(child: Text('No Status Available', style: TextStyle(color: Colors.white))),
+            
+            Positioned(
+              top: 15,
+              left: 10,
+              right: 10,
+              child: LinearProgressIndicator(
+                value: 1.0,
+                backgroundColor: Colors.grey,
+                valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                minHeight: 3,
+              ),
             ),
-          );
-        },
+
+            Positioned(
+              top: 35,
+              left: 20,
+              child: Row(
+                children: [
+                  const CircleAvatar(radius: 16, child: Icon(Icons.person, size: 18)),
+                  const SizedBox(width: 10),
+                  Text(name, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ),
+            if (music != null && music.isNotEmpty)
+              Positioned(
+                bottom: 40,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(20)),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.music_note, color: Colors.greenAccent, size: 18),
+                      const SizedBox(width: 8),
+                      Text(music, style: const TextStyle(color: Colors.white, fontSize: 14)),
+                    ],
+                  ),
+                ),
+              ),
+            Positioned(
+              top: 35,
+              right: 20,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                onPressed: () => Navigator.pop(ctx),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1103,6 +1147,11 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
                 stream: FirebaseFirestore.instance.collection('statuses').snapshots(),
                 builder: (context, snapshot) {
                   final statuses = snapshot.hasData ? snapshot.data!.docs : [];
+                  final myStatuses = statuses.where((doc) => (doc.data() as Map<String, dynamic>)['phone'] == widget.myPhone).toList();
+                  String? latestMyImagePath;
+                  if (myStatuses.isNotEmpty) {
+                    latestMyImagePath = (myStatuses.last.data() as Map<String, dynamic>)['imagePath'];
+                  }
                   
                   return ListView(
                     scrollDirection: Axis.horizontal,
@@ -1110,31 +1159,23 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
                     children: [
                       GestureDetector(
                         onTap: _uploadStatus,
-                        child: _buildStatusItem('My Status', Icons.add, null),
+                        child: _buildStatusItem('Add Status', Icons.add, null),
                       ),
-                      ...statuses.map((doc) {
-                        final data = doc.data() as Map<String, dynamic>;
-                        final phone = data['phone'] ?? '';
-                        final imagePath = data['imagePath'];
-                        final music = data['music'];
-                        if (phone == widget.myPhone) {
-                          return GestureDetector(
-                            onTap: () => _viewStatus('My Status', imagePath, music, statusDocId: doc.id),
-                            child: _buildStatusItem('My Status', null, imagePath),
-                          );
-                        }
-                        return const SizedBox.shrink();
-                      }),
+                      if (myStatuses.isNotEmpty)
+                        GestureDetector(
+                          onTap: () => _showMyStatusesList(myStatuses),
+                          child: _buildStatusItem('My Status', null, latestMyImagePath),
+                        ),
                       GestureDetector(
-                        onTap: () => _viewStatus('Rahul', null, null),
+                        onTap: () => _viewSingleStatus('Rahul', null, null),
                         child: _buildStatusItem('Rahul', null, null),
                       ),
                       GestureDetector(
-                        onTap: () => _viewStatus('Priya', null, null),
+                        onTap: () => _viewSingleStatus('Priya', null, null),
                         child: _buildStatusItem('Priya', null, null),
                       ),
                       GestureDetector(
-                        onTap: () => _viewStatus('Anita', null, null),
+                        onTap: () => _viewSingleStatus('Anita', null, null),
                         child: _buildStatusItem('Anita', null, null),
                       ),
                     ],
