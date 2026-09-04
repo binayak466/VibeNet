@@ -1454,9 +1454,9 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
                           ? const Center(child: Text('Create Post Section', style: TextStyle(fontSize: 16)))
                           : (_currentIndex == 3
                               ? const Center(child: Text('Reels & Videos', style: TextStyle(fontSize: 16)))
-                              : ProfileScreen(myPhone: widget.myPhone)))),
-            ),
-          ],
+                              : ProfileScreen(myPhone: widget.myPhone, parentContext: context))))),
+            ],
+          ),
         ),
       ),
       floatingActionButton: _currentIndex == 0 ? ContactsScreen(myPhone: widget.myPhone) : null,
@@ -2572,7 +2572,8 @@ class QrCodeScreen extends StatelessWidget {
 
 class ProfileScreen extends StatefulWidget {
   final String myPhone;
-  const ProfileScreen({super.key, required this.myPhone});
+  final BuildContext parentContext;
+  const ProfileScreen({super.key, required this.myPhone, required this.parentContext});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -2621,6 +2622,56 @@ class _ProfileScreenState extends State<ProfileScreen> {
         content: Text('$title feature is integrated successfully in VibeNet!'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+        ],
+      ),
+    );
+  }
+
+  void _showGmailBackupDialog() {
+    final TextEditingController emailController = TextEditingController();
+    showDialog(
+      context: widget.parentContext,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Google Drive Backup'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Enter your Gmail account to sync and backup your chats & media securely.'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: emailController,
+              keyboardType: TextInputType.emailAddress,
+              decoration: const InputDecoration(
+                labelText: 'Gmail Address',
+                hintText: 'example@gmail.com',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E88E5), foregroundColor: Colors.white),
+            onPressed: () async {
+              final email = emailController.text.trim();
+              if (email.isEmpty || !email.contains('@gmail.com')) {
+                ScaffoldMessenger.of(widget.parentContext).showSnackBar(const SnackBar(content: Text('Please enter a valid Gmail address')));
+                return;
+              }
+              await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({
+                'backupGmail': email,
+              });
+              if (ctx.mounted) Navigator.pop(ctx);
+              if (mounted) {
+                ScaffoldMessenger.of(widget.parentContext).showSnackBar(SnackBar(content: Text('Backup successful with $email!')));
+              }
+            },
+            child: const Text('Backup Now'),
+          ),
         ],
       ),
     );
