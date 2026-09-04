@@ -1640,11 +1640,140 @@ class _ConversationScreenState extends State<ConversationScreen> {
     });
   }
 
+  void _sendMediaMessage(String mediaType, String content) async {
+    await FirebaseFirestore.instance.collection('chats').add({
+      'sender': widget.myPhone,
+      'receiver': widget.receiverPhone,
+      'text': '[$mediaType] $content',
+      'isSeen': false,
+      'timestamp': FieldValue.serverTimestamp(),
+    });
+  }
+
+  void _deleteMessage(String docId, bool isMe) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Delete Message', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            ListTile(
+              leading: const Icon(Icons.delete_outline, color: Colors.orange),
+              title: const Text('Delete for me'),
+              onTap: () async {
+                Navigator.pop(ctx);
+                await FirebaseFirestore.instance.collection('chats').doc(docId).delete();
+              },
+            ),
+            if (isMe) ...[
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.delete_forever, color: Colors.red),
+                title: const Text('Delete for everyone', style: TextStyle(color: Colors.red)),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await FirebaseFirestore.instance.collection('chats').doc(docId).delete();
+                },
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAttachmentItem(IconData icon, Color color, String label, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 58,
+            height: 58,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.2),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 28),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: const TextStyle(color: Colors.white70, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.receiverName),
+        title: Row(
+          children: [
+            const CircleAvatar(
+              radius: 18,
+              child: Icon(Icons.person, size: 20),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: StreamBuilder<DocumentSnapshot>(
+                stream: FirebaseFirestore.instance.collection('users').doc(widget.receiverPhone).snapshots(),
+                builder: (context, snapshot) {
+                  String statusText = maskPhoneNumber(widget.receiverPhone);
+                  if (snapshot.hasData && snapshot.data!.exists) {
+                    final data = snapshot.data!.data() as Map<String, dynamic>?;
+                    final lastSeenPrivacy = data?['lastSeenPrivacy'] ?? 'everyone';
+                    
+                    if (lastSeenPrivacy != 'nobody') {
+                      final bool isExplicitlyOnline = data?['isOnline'] ?? false;
+                      final lastActive = data?['lastActive'];
+
+                      if (isExplicitlyOnline && lastActive != null && lastActive is Timestamp) {
+                        final DateTime activeTime = lastActive.toDate();
+                        final difference = DateTime.now().difference(activeTime);
+                        
+                        if (difference.inSeconds < 30) {
+                          statusText = 'Online';
+                        } else {
+                          int hour = activeTime.hour;
+                          String period = hour >= 12 ? 'PM' : 'AM';
+                          hour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
+                          String minute = activeTime.minute.toString().padLeft(2, '0');
+                          statusText = 'Last seen at $hour:$minute $period';
+                        }
+                      } else if (lastActive != null && lastActive is Timestamp) {
+                        final DateTime activeTime = lastActive.toDate();
+                        int hour = activeTime.hour;
+                        String period = hour >= 12 ? 'PM' : 'AM';
+                        hour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
+                        String minute = activeTime.minute.toString().padLeft(2, '0');
+                        statusText = 'Last seen at $hour:$minute $period';
+                      } else {
+                        statusText = 'Offline';
+                      }
+                    } else {
+                      statusText = 'Offline';
+                    }
+                  }
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(widget.receiverName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      Text(statusText, style: const TextStyle(fontSize: 11, color: Colors.white70)),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
         backgroundColor: const Color(0xFF1E88E5),
         foregroundColor: Colors.white,
       ),
@@ -1666,21 +1795,85 @@ class _ConversationScreenState extends State<ConversationScreen> {
                   reverse: true,
                   itemCount: docs.length,
                   itemBuilder: (context, index) {
-                    final data = docs[index].data() as Map<String, dynamic>;
+                    final doc = docs[index];
+                    final data = doc.data() as Map<String, dynamic>;
                     final isMe = data['sender'] == widget.myPhone;
+                    final isSeen = data['isSeen'] ?? false;
 
-                    return Align(
-                      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: isMe ? const Color(0xFF1E88E5) : Colors.grey[200],
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          data['text'] ?? '',
-                          style: TextStyle(fontSize: 15, color: isMe ? Colors.white : Colors.black87),
+                    if (!isMe && !isSeen) {
+                      FirebaseFirestore.instance.collection('chats').doc(doc.id).update({'isSeen': true});
+                    }
+
+                    return GestureDetector(
+                      onLongPress: () => _deleteMessage(doc.id, isMe),
+                      child: Align(
+                        alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isMe ? const Color(0xFF1E88E5) : Colors.grey[200],
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Flexible(
+                                child: data['text'].toString().startsWith('[Gallery Image]') || data['text'].toString().startsWith('[Camera Photo]') || data['text'].toString().startsWith('[Document]')
+                                    ? ClipRRect(
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Image.file(
+                                          File(data['text'].toString().split('] ').last),
+                                          height: 150,
+                                          width: 200,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (context, error, stackTrace) => Text(data['text'], style: TextStyle(fontSize: 14, color: isMe ? Colors.white : Colors.black87)),
+                                        ),
+                                      )
+                                    : (data['text'].toString().startsWith('[')
+                                        ? Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                data['text'].toString().contains('Location')
+                                                    ? Icons.location_on
+                                                    : (data['text'].toString().contains('Contact')
+                                                        ? Icons.person
+                                                        : Icons.attachment),
+                                                color: isMe ? Colors.white : Colors.black87,
+                                                size: 20,
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Flexible(
+                                                child: Text(
+                                                  data['text'] ?? '',
+                                                  style: TextStyle(
+                                                    fontSize: 15,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: isMe ? Colors.white : Colors.black87,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          )
+                                        : Text(
+                                            data['text'] ?? '',
+                                            style: TextStyle(
+                                              fontSize: 15,
+                                              color: isMe ? Colors.white : Colors.black87,
+                                            ),
+                                          )),
+                              ),
+                              const SizedBox(width: 6),
+                              if (isMe)
+                                Icon(
+                                  isSeen ? Icons.done_all : Icons.done,
+                                  size: 16,
+                                  color: isSeen ? Colors.blue : Colors.grey,
+                                ),
+                            ],
+                          ),
                         ),
                       ),
                     );
@@ -1694,14 +1887,200 @@ class _ConversationScreenState extends State<ConversationScreen> {
             child: Row(
               children: [
                 Expanded(
-                  child: TextField(
-                    controller: _msgCtrl,
-                    decoration: const InputDecoration(hintText: 'Message', border: OutlineInputBorder()),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[200],
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.emoji_emotions_outlined, color: Colors.grey),
+                          onPressed: () {
+                            showModalBottomSheet(
+                              context: context,
+                              backgroundColor: const Color(0xFF1E1E1E),
+                              shape: const RoundedRectangleBorder(
+                                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                              ),
+                              builder: (ctx) => Container(
+                                padding: const EdgeInsets.all(16),
+                                height: 300,
+                                child: Column(
+                                  children: [
+                                    Container(
+                                      width: 40,
+                                      height: 4,
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey[600],
+                                        borderRadius: BorderRadius.circular(2),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    const Text(
+                                      'WhatsApp Style Emojis',
+                                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Expanded(
+                                      child: GridView.count(
+                                        crossAxisCount: 6,
+                                        children: [
+                                          '😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃', '😉', '😊',
+                                          '😇', '🥰', '😍', '🤩', '😘', '😗', '😚', '😙', '😋', '😛', '😜', '🤪',
+                                          '😝', '🤑', '🤗', '🤭', '🤫', '🤔', '🤐', '🤨', '😐', '😑', '😶', '😏',
+                                          '😒', '🙄', '😬', '🤥', '😌', '😔', 'शी', '😪', '🤤', '😴', '😷', '🤒',
+                                          '🤕', '🤢', '🤮', '🤧', '🥵', '🥶', '🥴', '😵', '🤯', '🤠', '🥳', '😎',
+                                          '🤓', '🧐', '😕', '😟', '🙁', '😮', '😯', '😲', '😳', '🥺', '😦', '😧',
+                                          '👍', '👎', '👏', '🙌', '👐', '🤲', '🤝', '🙏', '✍️', '💅', '🤳', '💪',
+                                          '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❣️', '💕',
+                                          '🔥', '⭐', '🌟', '✨', '⚡', '💥', '🎉', '🎊', '🎈', '🎁', '🏆', '⚽'
+                                        ].map((emoji) => InkWell(
+                                              onTap: () {
+                                                setState(() {
+                                                  _msgCtrl.text += emoji;
+                                                });
+                                                Navigator.pop(ctx);
+                                              },
+                                              child: Center(
+                                                child: Text(emoji, style: const TextStyle(fontSize: 28)),
+                                              ),
+                                            ))
+                                            .toList(),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        Expanded(
+                          child: TextField(
+                            controller: _msgCtrl,
+                            decoration: const InputDecoration(
+                              hintText: 'Message',
+                              border: InputBorder.none,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.attach_file, color: Colors.grey),
+                          onPressed: () {
+                            showModalBottomSheet(
+                              context: context,
+                              backgroundColor: const Color(0xFF1E1E1E),
+                              shape: const RoundedRectangleBorder(
+                                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                              ),
+                              builder: (ctx) => Container(
+                                padding: const EdgeInsets.all(20),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      width: 40,
+                                      height: 4,
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey[600],
+                                        borderRadius: BorderRadius.circular(2),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 20),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                      children: [
+                                        _buildAttachmentItem(Icons.photo_library, Colors.blue, 'Gallery', () async {
+                                          Navigator.pop(ctx);
+                                          final picker = ImagePicker();
+                                          final image = await picker.pickImage(source: ImageSource.gallery);
+                                          if (image != null) {
+                                            _sendMediaMessage('Gallery Image', image.path);
+                                          }
+                                        }),
+                                        _buildAttachmentItem(Icons.location_on, Colors.green, 'Location', () {
+                                          Navigator.pop(ctx);
+                                          _sendMediaMessage('Location', 'Live GPS Location Shared');
+                                        }),
+                                        _buildAttachmentItem(Icons.person, Colors.lightBlueAccent, 'Contact', () {
+                                          Navigator.pop(ctx);
+                                          _sendMediaMessage('Contact', 'Shared a Contact');
+                                        }),
+                                        _buildAttachmentItem(Icons.insert_drive_file, Colors.purpleAccent, 'Document', () async {
+                                          Navigator.pop(ctx);
+                                          final picker = ImagePicker();
+                                          final docFile = await picker.pickImage(source: ImageSource.gallery);
+                                          if (docFile != null) {
+                                            _sendMediaMessage('Document', docFile.path);
+                                          }
+                                        }),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 20),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                      children: [
+                                        _buildAttachmentItem(Icons.poll, Colors.amber, 'Poll', () {
+                                          Navigator.pop(ctx);
+                                          _sendMediaMessage('Poll', 'Created a new Poll');
+                                        }),
+                                        _buildAttachmentItem(Icons.currency_rupee, Colors.teal, 'Payment', () {
+                                          Navigator.pop(ctx);
+                                          _sendMediaMessage('Payment', '₹500.00 Sent via VibeNet UPI');
+                                        }),
+                                        _buildAttachmentItem(Icons.event, Colors.pinkAccent, 'Event', () {
+                                          Navigator.pop(ctx);
+                                          _sendMediaMessage('Event', 'Scheduled Meetup Event');
+                                        }),
+                                        _buildAttachmentItem(Icons.auto_awesome, Colors.blueAccent, 'AI images', () {
+                                          Navigator.pop(ctx);
+                                          _sendMediaMessage('AI Image', 'Generated AI Artwork');
+                                        }),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 10),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.currency_rupee, color: Colors.grey),
+                          onPressed: () {
+                            _sendMediaMessage('Payment', '₹100.00 Quick UPI Transfer');
+                          },
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.camera_alt_outlined, color: Colors.grey),
+                          onPressed: () async {
+                            final picker = ImagePicker();
+                            final photo = await picker.pickImage(source: ImageSource.camera);
+                            if (photo != null) {
+                              _sendMediaMessage('Camera Photo', photo.path);
+                            }
+                          },
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.send, color: Color(0xFF1E88E5)),
-                  onPressed: _send,
+                const SizedBox(width: 8),
+                CircleAvatar(
+                  radius: 24,
+                  backgroundColor: const Color(0xFF1E88E5),
+                  child: IconButton(
+                    icon: Icon(_msgCtrl.text.isEmpty ? Icons.mic : Icons.send, color: Colors.white),
+                    onPressed: () {
+                      if (_msgCtrl.text.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Voice Note Recorded & Sent')));
+                        _sendMediaMessage('Voice Note', 'Audio Message (0:15)');
+                      } else {
+                        _send();
+                      }
+                    },
+                  ),
                 ),
               ],
             ),
