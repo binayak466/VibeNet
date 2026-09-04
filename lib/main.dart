@@ -830,105 +830,167 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
     if (pickedFile != null) {
       if (!mounted) return;
       
-      // Select Music Modal
       showModalBottomSheet(
         context: context,
+        isScrollControlled: true,
         backgroundColor: const Color(0xFF1E1E1E),
         shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-        builder: (ctx) => Container(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Add Background Music', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
-              ..._musicList.map((music) => ListTile(
-                leading: const Icon(Icons.music_note, color: Color(0xFF1E88E5)),
-                title: Text(music, style: const TextStyle(color: Colors.white)),
-                onTap: () async {
-                  Navigator.pop(ctx);
-                  await FirebaseFirestore.instance.collection('statuses').add({
-                    'phone': widget.myPhone,
-                    'imagePath': pickedFile.path,
-                    'music': music,
-                    'timestamp': FieldValue.serverTimestamp(),
-                  });
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Status uploaded with music!')));
-                  }
-                },
-              )),
-              ListTile(
-                leading: const Icon(Icons.close, color: Colors.red),
-                title: const Text('Upload Without Music', style: TextStyle(color: Colors.red)),
-                onTap: () async {
-                  Navigator.pop(ctx);
-                  await FirebaseFirestore.instance.collection('statuses').add({
-                    'phone': widget.myPhone,
-                    'imagePath': pickedFile.path,
-                    'music': '',
-                    'timestamp': FieldValue.serverTimestamp(),
-                  });
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Status uploaded successfully!')));
-                  }
-                },
+        builder: (ctx) => StatefulBuilder(
+          builder: (context, setStateModal) {
+            String musicQuery = '';
+            final filteredMusic = _musicList.where((m) => m.toLowerCase().contains(musicQuery.toLowerCase())).toList();
+
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.6,
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  const Text('Add Background Music', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  TextField(
+                    onChanged: (v) => setStateModal(() => musicQuery = v),
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      hintText: 'Search songs...',
+                      hintStyle: const TextStyle(color: Colors.grey),
+                      prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                      filled: true,
+                      fillColor: Colors.grey[850],
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: filteredMusic.length,
+                      itemBuilder: (context, index) {
+                        final music = filteredMusic[index];
+                        return ListTile(
+                          leading: const Icon(Icons.music_note, color: Color(0xFF1E88E5)),
+                          title: Text(music, style: const TextStyle(color: Colors.white)),
+                          onTap: () async {
+                            Navigator.pop(ctx);
+                            await FirebaseFirestore.instance.collection('statuses').add({
+                              'phone': widget.myPhone,
+                              'imagePath': pickedFile.path,
+                              'music': music,
+                              'timestamp': FieldValue.serverTimestamp(),
+                            });
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Status uploaded with music!')));
+                            }
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.close, color: Colors.red),
+                    title: const Text('Upload Without Music', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                    onTap: () async {
+                      Navigator.pop(ctx);
+                      await FirebaseFirestore.instance.collection('statuses').add({
+                        'phone': widget.myPhone,
+                        'imagePath': pickedFile.path,
+                        'music': '',
+                        'timestamp': FieldValue.serverTimestamp(),
+                      });
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Status uploaded successfully!')));
+                      }
+                    },
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         ),
       );
     }
   }
 
-  void _viewStatus(String name, String? imagePath, String? music) {
+  void _viewStatus(String name, String? imagePath, String? music, {String? statusDocId}) {
     showDialog(
       context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.black,
-        insetPadding: EdgeInsets.zero,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            imagePath != null && imagePath.isNotEmpty
-                ? (imagePath.startsWith('http') ? Image.network(imagePath, fit: BoxFit.contain) : Image.file(File(imagePath), fit: BoxFit.contain))
-                : const Center(child: Text('No Status Available', style: TextStyle(color: Colors.white))),
-            Positioned(
-              top: 40,
-              left: 20,
-              child: Row(
-                children: [
-                  const CircleAvatar(radius: 16, child: Icon(Icons.person, size: 18)),
-                  const SizedBox(width: 10),
-                  Text(name, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                ],
-              ),
-            ),
-            if (music != null && music.isNotEmpty)
-              Positioned(
-                bottom: 40,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(20)),
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setStateDialog) {
+          return Dialog(
+            backgroundColor: Colors.black,
+            insetPadding: EdgeInsets.zero,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                imagePath != null && imagePath.isNotEmpty
+                    ? (imagePath.startsWith('http') ? Image.network(imagePath, fit: BoxFit.contain) : Image.file(File(imagePath), fit: BoxFit.contain))
+                    : const Center(child: Text('No Status Available', style: TextStyle(color: Colors.white))),
+                
+                // Top Progress Bar
+                Positioned(
+                  top: 15,
+                  left: 10,
+                  right: 10,
+                  child: LinearProgressIndicator(
+                    value: 1.0,
+                    backgroundColor: Colors.grey,
+                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                    minHeight: 3,
+                  ),
+                ),
+
+                Positioned(
+                  top: 35,
+                  left: 20,
                   child: Row(
                     children: [
-                      const Icon(Icons.music_note, color: Colors.greenAccent, size: 18),
-                      const SizedBox(width: 8),
-                      Text(music, style: const TextStyle(color: Colors.white, fontSize: 14)),
+                      const CircleAvatar(radius: 16, child: Icon(Icons.person, size: 18)),
+                      const SizedBox(width: 10),
+                      Text(name, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
                     ],
                   ),
                 ),
-              ),
-            Positioned(
-              top: 40,
-              right: 20,
-              child: IconButton(
-                icon: const Icon(Icons.close, color: Colors.white, size: 28),
-                onPressed: () => Navigator.pop(ctx),
-              ),
+                if (music != null && music.isNotEmpty)
+                  Positioned(
+                    bottom: 40,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(20)),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.music_note, color: Colors.greenAccent, size: 18),
+                          const SizedBox(width: 8),
+                          Text(music, style: const TextStyle(color: Colors.white, fontSize: 14)),
+                        ],
+                      ),
+                    ),
+                  ),
+                Positioned(
+                  top: 35,
+                  right: 20,
+                  child: Row(
+                    children: [
+                      if (statusDocId != null)
+                        IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.red, size: 26),
+                          onPressed: () async {
+                            await FirebaseFirestore.instance.collection('statuses').doc(statusDocId).delete();
+                            if (ctx.mounted) Navigator.pop(ctx);
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Status deleted')));
+                            }
+                          },
+                        ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -1057,7 +1119,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
                         final music = data['music'];
                         if (phone == widget.myPhone) {
                           return GestureDetector(
-                            onTap: () => _viewStatus('My Status', imagePath, music),
+                            onTap: () => _viewStatus('My Status', imagePath, music, statusDocId: doc.id),
                             child: _buildStatusItem('My Status', null, imagePath),
                           );
                         }
