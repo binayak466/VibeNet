@@ -2574,6 +2574,201 @@ class QrCodeScreen extends StatelessWidget {
   }
 }
 
+class NotificationsSettingsScreen extends StatefulWidget {
+  final String myPhone;
+  const NotificationsSettingsScreen({super.key, required this.myPhone});
+
+  @override
+  State<NotificationsSettingsScreen> createState() => _NotificationsSettingsScreenState();
+}
+
+class _NotificationsSettingsScreenState extends State<NotificationsSettingsScreen> {
+  bool _conversationTones = true;
+  bool _reminders = true;
+  bool _msgHighPriority = true;
+  bool _msgReaction = true;
+  bool _groupHighPriority = true;
+  bool _groupReaction = true;
+  bool _statusHighPriority = true;
+  bool _statusReactions = true;
+
+  String _msgTone = 'Default (Encounter)';
+  String _groupTone = 'Default (Encounter)';
+  String _callRingtone = 'Default (Lawn Lifestyle)';
+  String _statusTone = 'Default (Encounter)';
+
+  void _showTonePicker(String title, String currentTone, Function(String) onSelected) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Select $title'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: ['Default (Encounter)', 'Chimes', 'Bell', 'Ripple', 'Silent'].map((tone) {
+            return ListTile(
+              title: Text(tone),
+              trailing: currentTone == tone ? const Icon(Icons.check, color: Color(0xFF1E88E5)) : null,
+              onTap: () {
+                onSelected(tone);
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$title updated to $tone')));
+              },
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Notifications'),
+        backgroundColor: const Color(0xFF1E88E5),
+        foregroundColor: Colors.white,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        children: [
+          SwitchListTile(
+            title: const Text('Conversation tones', style: TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: const Text('Play sounds for incoming and outgoing messages.'),
+            value: _conversationTones,
+            activeColor: const Color(0xFF1E88E5),
+            onChanged: (val) {
+              setState(() => _conversationTones = val);
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(val ? 'Conversation tones enabled' : 'Conversation tones disabled')));
+            },
+          ),
+          SwitchListTile(
+            title: const Text('Reminders', style: TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: const Text('Get occasional reminders about messages, calls or status updates you haven’t seen'),
+            value: _reminders,
+            activeColor: const Color(0xFF1E88E5),
+            onChanged: (val) {
+              setState(() => _reminders = val);
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(val ? 'Reminders enabled' : 'Reminders disabled')));
+            },
+          ),
+          const Divider(),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            child: Text('Messages', style: TextStyle(color: Color(0xFF1E88E5), fontWeight: FontWeight.bold, fontSize: 13)),
+          ),
+          ListTile(
+            title: const Text('Notification tone'),
+            subtitle: Text(_msgTone),
+            onTap: () => _showTonePicker('Message Notification Tone', _msgTone, (val) => setState(() => _msgTone = val)),
+          ),
+          ListTile(
+            title: const Text('Vibrate'),
+            subtitle: const Text('Default'),
+            onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vibration pattern set to Default'))),
+          ),
+          ListTile(
+            title: const Text('Light'),
+            subtitle: const Text('White'),
+            onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Notification LED light set to White'))),
+          ),
+          SwitchListTile(
+            title: const Text('Use high priority notifications'),
+            subtitle: const Text('Show previews of notifications at the top of the screen'),
+            value: _msgHighPriority,
+            activeColor: const Color(0xFF1E88E5),
+            onChanged: (val) => setState(() => _msgHighPriority = val),
+          ),
+          SwitchListTile(
+            title: const Text('Reaction notifications'),
+            subtitle: const Text('Show notifications for reactions to messages you send'),
+            value: _msgReaction,
+            activeColor: const Color(0xFF1E88E5),
+            onChanged: (val) => setState(() => _msgReaction = val),
+          ),
+          const Divider(),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            child: Text('Groups', style: TextStyle(color: Color(0xFF1E88E5), fontWeight: FontWeight.bold, fontSize: 13)),
+          ),
+          ListTile(
+            title: const Text('Notification tone'),
+            subtitle: Text(_groupTone),
+            onTap: () => _showTonePicker('Group Notification Tone', _groupTone, (val) => setState(() => _groupTone = val)),
+          ),
+          ListTile(
+            title: const Text('Vibrate'),
+            subtitle: const Text('Default'),
+            onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Group vibration set to Default'))),
+          ),
+          ListTile(
+            title: const Text('Light'),
+            subtitle: const Text('White'),
+            onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Group LED light set to White'))),
+          ),
+          SwitchListTile(
+            title: const Text('Use high priority notifications'),
+            subtitle: const Text('Show previews of notifications at the top of the screen'),
+            value: _groupHighPriority,
+            activeColor: const Color(0xFF1E88E5),
+            onChanged: (val) => setState(() => _groupHighPriority = val),
+          ),
+          SwitchListTile(
+            title: const Text('Reaction notifications'),
+            subtitle: const Text('Show notifications for reactions to messages you send'),
+            value: _groupReaction,
+            activeColor: const Color(0xFF1E88E5),
+            onChanged: (val) => setState(() => _groupReaction = val),
+          ),
+          const Divider(),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            child: Text('Calls', style: TextStyle(color: Color(0xFF1E88E5), fontWeight: FontWeight.bold, fontSize: 13)),
+          ),
+          ListTile(
+            title: const Text('Ringtone'),
+            subtitle: Text(_callRingtone),
+            onTap: () => _showTonePicker('Call Ringtone', _callRingtone, (val) => setState(() => _callRingtone = val)),
+          ),
+          ListTile(
+            title: const Text('Vibrate'),
+            subtitle: const Text('Default'),
+            onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Call vibration set to Default'))),
+          ),
+          const Divider(),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            child: Text('Status', style: TextStyle(color: Color(0xFF1E88E5), fontWeight: FontWeight.bold, fontSize: 13)),
+          ),
+          ListTile(
+            title: const Text('Notification tone'),
+            subtitle: Text(_statusTone),
+            onTap: () => _showTonePicker('Status Notification Tone', _statusTone, (val) => setState(() => _statusTone = val)),
+          ),
+          ListTile(
+            title: const Text('Vibrate'),
+            subtitle: const Text('Default'),
+            onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Status vibration set to Default'))),
+          ),
+          SwitchListTile(
+            title: const Text('Use high priority notifications'),
+            subtitle: const Text('Show previews of notifications at the top of the screen'),
+            value: _statusHighPriority,
+            activeColor: const Color(0xFF1E88E5),
+            onChanged: (val) => setState(() => _statusHighPriority = val),
+          ),
+          SwitchListTile(
+            title: const Text('Reactions'),
+            subtitle: const Text('Show notifications when you get likes on a status'),
+            value: _statusReactions,
+            activeColor: const Color(0xFF1E88E5),
+            onChanged: (val) => setState(() => _statusReactions = val),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class ProfileScreen extends StatefulWidget {
   final String myPhone;
   const ProfileScreen({super.key, required this.myPhone});
@@ -2823,7 +3018,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
             leading: const Icon(Icons.notifications, color: Color(0xFF1E88E5)),
             title: const Text('Notifications'),
             subtitle: const Text('Message, group & call tones'),
-            onTap: () => _showFeatureMessage('Notifications'),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (c) => NotificationsSettingsScreen(myPhone: widget.myPhone),
+                ),
+              );
+            },
           ),
           ListTile(
             leading: const Icon(Icons.storage, color: Color(0xFF1E88E5)),
