@@ -1477,7 +1477,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
             },
           ),
           PopupMenuButton<String>(
-            onsection: (value) {
+            onSelected: (value) {
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$value clicked')));
             },
             itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
