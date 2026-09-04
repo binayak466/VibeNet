@@ -1,32 +1,12 @@
 import 'package:flutter/material.dart';
 
-void main() {
-  runApp(const VibeNetApp());
-}
-
-class VibeNetApp extends StatelessWidget {
-  const VibeNetApp({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'VibeNet',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF0F141C),
-      ),
-      home: const AccountSettingsScreen(),
-    );
-  }
-}
-
 class AccountSettingsScreen extends StatelessWidget {
   const AccountSettingsScreen({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFF0F141C),
       appBar: AppBar(
         backgroundColor: const Color(0xFF0F141C),
         title: const Text('Account', style: TextStyle(color: Colors.white)),
@@ -39,7 +19,9 @@ class AccountSettingsScreen extends StatelessWidget {
             title: 'Security notifications',
             subtitle: 'Show security alerts for your account',
             onTap: () {
-              // Security action
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Security notifications clicked')),
+              );
             },
           ),
           _buildAccountOption(
@@ -47,7 +29,9 @@ class AccountSettingsScreen extends StatelessWidget {
             title: 'Change number',
             subtitle: 'Migrate account to a new phone number',
             onTap: () {
-              // Change number action
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Change number clicked')),
+              );
             },
           ),
           _buildAccountOption(
@@ -55,7 +39,9 @@ class AccountSettingsScreen extends StatelessWidget {
             title: 'Two-step verification',
             subtitle: 'Add extra security with a PIN',
             onTap: () {
-              // 2SV action
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Two-step verification clicked')),
+              );
             },
           ),
           _buildAccountOption(
@@ -63,7 +49,9 @@ class AccountSettingsScreen extends StatelessWidget {
             title: 'Request account info',
             subtitle: 'Get a report of your account settings',
             onTap: () {
-              // Info action
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Request account info clicked')),
+              );
             },
           ),
           _buildAccountOption(
@@ -72,7 +60,26 @@ class AccountSettingsScreen extends StatelessWidget {
             subtitle: 'Permanently delete your account and data',
             textColor: Colors.redAccent,
             onTap: () {
-              // Delete action
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  backgroundColor: const Color(0xFF0F141C),
+                  title: const Text('Delete Account', style: TextStyle(color: Colors.white)),
+                  content: const Text('Are you sure you want to permanently delete your account?', style: TextStyle(color: Colors.grey)),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Cancel', style: TextStyle(color: Colors.blueAccent)),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                      },
+                      child: const Text('Delete', style: TextStyle(color: Colors.redAccent)),
+                    ),
+                  ],
+                ),
+              );
             },
           ),
         ],
