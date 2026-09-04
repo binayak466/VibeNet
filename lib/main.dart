@@ -1454,9 +1454,9 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
                           ? const Center(child: Text('Create Post Section', style: TextStyle(fontSize: 16)))
                           : (_currentIndex == 3
                               ? const Center(child: Text('Reels & Videos', style: TextStyle(fontSize: 16)))
-                              : ProfileScreen(myPhone: widget.myPhone, parentContext: context))))),
-            ],
-          ),
+                              : ProfileScreen(myPhone: widget.myPhone)))),
+            ),
+          ],
         ),
       ),
       floatingActionButton: _currentIndex == 0 ? ContactsScreen(myPhone: widget.myPhone) : null,
@@ -1825,6 +1825,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       appBar: AppBar(
         title: Row(
@@ -1958,7 +1959,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
                           margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           decoration: BoxDecoration(
-                            color: isMe ? const Color(0xFF1E88E5) : Colors.grey[200],
+                            color: isMe ? const Color(0xFF1E88E5) : (isDark ? const Color(0xFF1F2C34) : Colors.grey[200]),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Row(
@@ -1974,7 +1975,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
                                           height: 150,
                                           width: 200,
                                           fit: BoxFit.cover,
-                                          errorBuilder: (context, error, stackTrace) => Text(data['text'], style: TextStyle(fontSize: 14, color: isMe ? Colors.white : Colors.black87)),
+                                          errorBuilder: (context, error, stackTrace) => Text(data['text'], style: TextStyle(fontSize: 14, color: isMe ? Colors.white : (isDark ? Colors.white : Colors.black87))),
                                         ),
                                       )
                                     : (data['text'].toString().startsWith('[')
@@ -1987,7 +1988,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
                                                     : (data['text'].toString().contains('Contact')
                                                         ? Icons.person
                                                         : Icons.attachment),
-                                                color: isMe ? Colors.white : Colors.black87,
+                                                color: isMe ? Colors.white : (isDark ? Colors.white70 : Colors.black87),
                                                 size: 20,
                                               ),
                                               const SizedBox(width: 8),
@@ -1997,7 +1998,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
                                                   style: TextStyle(
                                                     fontSize: 15,
                                                     fontWeight: FontWeight.bold,
-                                                    color: isMe ? Colors.white : Colors.black87,
+                                                    color: isMe ? Colors.white : (isDark ? Colors.white : Colors.black87),
                                                   ),
                                                 ),
                                               ),
@@ -2007,7 +2008,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
                                             data['text'] ?? '',
                                             style: TextStyle(
                                               fontSize: 15,
-                                              color: isMe ? Colors.white : Colors.black87,
+                                              color: isMe ? Colors.white : (isDark ? Colors.white : Colors.black87),
                                             ),
                                           )),
                               ),
@@ -2028,25 +2029,26 @@ class _ConversationScreenState extends State<ConversationScreen> {
               },
             ),
           ),
-          Padding(
+          Container(
             padding: const EdgeInsets.all(8.0),
+            color: isDark ? const Color(0xFF111B21) : Colors.white,
             child: Row(
               children: [
                 Expanded(
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     decoration: BoxDecoration(
-                      color: Colors.grey[200],
+                      color: isDark ? const Color(0xFF2A3942) : Colors.grey[200],
                       borderRadius: BorderRadius.circular(24),
                     ),
                     child: Row(
                       children: [
                         IconButton(
-                          icon: const Icon(Icons.emoji_emotions_outlined, color: Colors.grey),
+                          icon: Icon(Icons.emoji_emotions_outlined, color: isDark ? Colors.grey[400] : Colors.grey),
                           onPressed: () {
                             showModalBottomSheet(
                               context: context,
-                              backgroundColor: const Color(0xFF1E1E1E),
+                              backgroundColor: isDark ? const Color(0xFF1F2C34) : Colors.white,
                               shape: const RoundedRectangleBorder(
                                 borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
                               ),
@@ -2064,9 +2066,9 @@ class _ConversationScreenState extends State<ConversationScreen> {
                                       ),
                                     ),
                                     const SizedBox(height: 12),
-                                    const Text(
+                                    Text(
                                       'WhatsApp Style Emojis',
-                                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                                      style: TextStyle(color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.bold, fontSize: 16),
                                     ),
                                     const SizedBox(height: 12),
                                     Expanded(
@@ -2105,18 +2107,20 @@ class _ConversationScreenState extends State<ConversationScreen> {
                         Expanded(
                           child: TextField(
                             controller: _msgCtrl,
-                            decoration: const InputDecoration(
+                            style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                            decoration: InputDecoration(
                               hintText: 'Message',
+                              hintStyle: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey),
                               border: InputBorder.none,
                             ),
                           ),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.attach_file, color: Colors.grey),
+                          icon: Icon(Icons.attach_file, color: isDark ? Colors.grey[400] : Colors.grey),
                           onPressed: () {
                             showModalBottomSheet(
                               context: context,
-                              backgroundColor: const Color(0xFF1E1E1E),
+                              backgroundColor: isDark ? const Color(0xFF1F2C34) : Colors.white,
                               shape: const RoundedRectangleBorder(
                                 borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
                               ),
@@ -2193,13 +2197,13 @@ class _ConversationScreenState extends State<ConversationScreen> {
                           },
                         ),
                         IconButton(
-                          icon: const Icon(Icons.currency_rupee, color: Colors.grey),
+                          icon: Icon(Icons.currency_rupee, color: isDark ? Colors.grey[400] : Colors.grey),
                           onPressed: () {
                             _sendMediaMessage('Payment', '₹100.00 Quick UPI Transfer');
                           },
                         ),
                         IconButton(
-                          icon: const Icon(Icons.camera_alt_outlined, color: Colors.grey),
+                          icon: Icon(Icons.camera_alt_outlined, color: isDark ? Colors.grey[400] : Colors.grey),
                           onPressed: () async {
                             final picker = ImagePicker();
                             final photo = await picker.pickImage(source: ImageSource.camera);
@@ -2572,8 +2576,7 @@ class QrCodeScreen extends StatelessWidget {
 
 class ProfileScreen extends StatefulWidget {
   final String myPhone;
-  final BuildContext parentContext;
-  const ProfileScreen({super.key, required this.myPhone, required this.parentContext});
+  const ProfileScreen({super.key, required this.myPhone});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -2630,7 +2633,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _showGmailBackupDialog() {
     final TextEditingController emailController = TextEditingController();
     showDialog(
-      context: widget.parentContext,
+      context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Google Drive Backup'),
         content: Column(
@@ -2659,7 +2662,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onPressed: () async {
               final email = emailController.text.trim();
               if (email.isEmpty || !email.contains('@gmail.com')) {
-                ScaffoldMessenger.of(widget.parentContext).showSnackBar(const SnackBar(content: Text('Please enter a valid Gmail address')));
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a valid Gmail address')));
                 return;
               }
               await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({
@@ -2667,7 +2670,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               });
               if (ctx.mounted) Navigator.pop(ctx);
               if (mounted) {
-                ScaffoldMessenger.of(widget.parentContext).showSnackBar(SnackBar(content: Text('Backup successful with $email!')));
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Backup successful with $email!')));
               }
             },
             child: const Text('Backup Now'),
