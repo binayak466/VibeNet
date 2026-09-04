@@ -2433,6 +2433,7 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Privacy'),
@@ -2456,11 +2457,12 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
             subtitle: Text('Current setting: $_profilePhotoPrivacy'),
             trailing: DropdownButton<String>(
               value: _profilePhotoPrivacy,
-              dropdownColor: Colors.grey[900],
-              items: const [
-                DropdownMenuItem(value: 'everyone', child: Text('Everyone')),
-                DropdownMenuItem(value: 'contacts', child: Text('My Contacts')),
-                DropdownMenuItem(value: 'nobody', child: Text('Only Me')),
+              dropdownColor: isDark ? Colors.grey[900] : Colors.white,
+              style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+              items: [
+                DropdownMenuItem(value: 'everyone', child: Text('Everyone', style: TextStyle(color: isDark ? Colors.white : Colors.black87))),
+                DropdownMenuItem(value: 'contacts', child: Text('My Contacts', style: TextStyle(color: isDark ? Colors.white : Colors.black87))),
+                DropdownMenuItem(value: 'nobody', child: Text('Only Me', style: TextStyle(color: isDark ? Colors.white : Colors.black87))),
               ],
               onChanged: (val) {
                 if (val != null) _updateProfilePhotoPrivacy(val);
@@ -2473,11 +2475,12 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
             subtitle: Text('Current setting: $_lastSeenPrivacy'),
             trailing: DropdownButton<String>(
               value: _lastSeenPrivacy,
-              dropdownColor: Colors.grey[900],
-              items: const [
-                DropdownMenuItem(value: 'everyone', child: Text('Everyone')),
-                DropdownMenuItem(value: 'contacts', child: Text('My Contacts')),
-                DropdownMenuItem(value: 'nobody', child: Text('Only Me')),
+              dropdownColor: isDark ? Colors.grey[900] : Colors.white,
+              style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+              items: [
+                DropdownMenuItem(value: 'everyone', child: Text('Everyone', style: TextStyle(color: isDark ? Colors.white : Colors.black87))),
+                DropdownMenuItem(value: 'contacts', child: Text('My Contacts', style: TextStyle(color: isDark ? Colors.white : Colors.black87))),
+                DropdownMenuItem(value: 'nobody', child: Text('Only Me', style: TextStyle(color: isDark ? Colors.white : Colors.black87))),
               ],
               onChanged: (val) {
                 if (val != null) _updateLastSeenPrivacy(val);
