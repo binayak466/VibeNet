@@ -916,7 +916,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
     }
   }
 
-  void _showMyStatusesList(List<QueryDocumentSnapshot> myStatuses) {
+  void _showMyStatusesList(List<QueryDocumentSnapshot<Map<String, dynamic>>> myStatuses) {
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF1E1E1E),
@@ -932,7 +932,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
               child: ListView.builder(
                 itemCount: myStatuses.length,
                 itemBuilder: (context, index) {
-                  final data = myStatuses[index].data() as Map<String, dynamic>;
+                  final data = myStatuses[index].data();
                   final imagePath = data['imagePath'] ?? '';
                   final music = data['music'] ?? '';
                   final docId = myStatuses[index].id;
@@ -1147,10 +1147,12 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
                 stream: FirebaseFirestore.instance.collection('statuses').snapshots(),
                 builder: (context, snapshot) {
                   final statuses = snapshot.hasData ? snapshot.data!.docs : [];
-                  final myStatuses = statuses.where((doc) => (doc.data() as Map<String, dynamic>)['phone'] == widget.myPhone).toList();
+                  final myStatuses = statuses.where((doc) => (doc.data() as Map<String, dynamic>)['phone'] == widget.myPhone).toList()
+                      .cast<QueryDocumentSnapshot<Map<String, dynamic>>>();
+                  
                   String? latestMyImagePath;
                   if (myStatuses.isNotEmpty) {
-                    latestMyImagePath = (myStatuses.last.data() as Map<String, dynamic>)['imagePath'];
+                    latestMyImagePath = myStatuses.last.data()['imagePath'];
                   }
                   
                   return ListView(
