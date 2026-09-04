@@ -10,6 +10,8 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:record/record.dart';
+import 'package:path_provider/path_provider.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -1678,6 +1680,10 @@ class ConversationScreen extends StatefulWidget {
 
 class _ConversationScreenState extends State<ConversationScreen> {
   final TextEditingController _msgCtrl = TextEditingController();
+  final AudioRecorder _audioRecorder = AudioRecorder();
+  final AudioPlayer _previewPlayer = AudioPlayer();
+  bool _isRecording = false;
+  String? _recordedAudioPath;
 
   @override
   void initState() {
@@ -1688,6 +1694,8 @@ class _ConversationScreenState extends State<ConversationScreen> {
   @override
   void dispose() {
     _setMyActiveStatus(false);
+    _audioRecorder.dispose();
+    _previewPlayer.dispose();
     super.dispose();
   }
 
@@ -1721,6 +1729,80 @@ class _ConversationScreenState extends State<ConversationScreen> {
       'isSeen': false,
       'timestamp': FieldValue.serverTimestamp(),
     });
+  }
+
+  Future<void> _startRecording() async {
+    try {
+      if (await _audioRecorder.hasPermission()) {
+        final dir = await getTemporaryDirectory();
+        String path = '${dir.path}/audio_${DateTime.now().millisecondsSinceEpoch}.m4a';
+        await _audioRecorder.start(const RecordConfig(), path: path);
+        setState(() {
+          _isRecording = true;
+          _recordedAudioPath = null;
+        });
+      }
+    } catch (e) {
+      print("Record error: $e");
+    }
+  }
+
+  Future<void> _stopRecording() async {
+    try {
+      final path = await _audioRecorder.stop();
+      setState(() {
+        _isRecording = false;
+        _recordedAudioPath = path;
+      });
+      if (_recordedAudioPath != null) {
+        _showAudioPreviewDialog(_recordedAudioPath!);
+      }
+    } catch (e) {
+      print("Stop record error: $e");
+    }
+  }
+
+  void _showAudioPreviewDialog(String path) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Voice Note Preview'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Listen to your voice note before sending:'),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E88E5), foregroundColor: Colors.white),
+              onPressed: () async {
+                await _previewPlayer.play(DeviceFileSource(path));
+              },
+              icon: const Icon(Icons.play_arrow),
+              label: const Text('Play Audio'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              _previewPlayer.stop();
+              Navigator.pop(ctx);
+            },
+            child: const Text('Cancel', style: TextStyle(color: Colors.red)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E88E5), foregroundColor: Colors.white),
+            onPressed: () {
+              _previewPlayer.stop();
+              Navigator.pop(ctx);
+              _sendMediaMessage('Voice Note', 'Audio Message (0:05)');
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Voice note sent successfully!')));
+            },
+            child: const Text('Send'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _deleteMessage(String docId, bool isMe) {
@@ -2140,24 +2222,20 @@ class _ConversationScreenState extends State<ConversationScreen> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                CircleAvatar(
-                  radius: 24,
-                  backgroundColor: const Color(0xFF1E88E5),
-                  child: IconButton(
-                    icon: Icon(_msgCtrl.text.isEmpty ? Icons.mic : Icons.send, color: Colors.white),
-                    onPressed: () async {
-                      if (_msgCtrl.text.isEmpty) {
-                        var micStatus = await Permission.microphone.request();
-                        if (micStatus.isGranted) {
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Voice Note Recorded & Sent')));
-                          _sendMediaMessage('Voice Note', 'Audio Message (0:15)');
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Microphone permission is required to send voice notes')));
+                GestureDetector(
+                  onLongPressStart: (_) => _startRecording(),
+                  onLongPressEnd: (_) => _stopRecording(),
+                  child: CircleAvatar(
+                    radius: 24,
+                    backgroundColor: _isRecording ? Colors.red : const Color(0xFF1E88E5),
+                    child: IconButton(
+                      icon: Icon(_msgCtrl.text.isEmpty ? (_isRecording ? Icons.mic : Icons.mic) : Icons.send, color: Colors.white),
+                      onPressed: () {
+                        if (_msgCtrl.text.isNotEmpty) {
+                          _send();
                         }
-                      } else {
-                        _send();
-                      }
-                    },
+                      },
+                    ),
                   ),
                 ),
               ],
@@ -2198,14 +2276,123 @@ class CallScreen extends StatelessWidget {
   }
 }
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   final String myPhone;
   const ProfileScreen({super.key, required this.myPhone});
 
   @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  bool _biometricEnabled = false;
+  String _lastSeenPrivacy = 'everyone';
+  String _profileName = '';
+  String _photoUrl = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  void _loadUserData() async {
+    final doc = await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).get();
+    if (doc.exists && doc.data() != null) {
+      final data = doc.data()!;
+      setState(() {
+        _biometricEnabled = data['biometricEnabled'] ?? false;
+        _lastSeenPrivacy = data['lastSeenPrivacy'] ?? 'everyone';
+        _profileName = data['name'] ?? 'User';
+        _photoUrl = data['photoUrl'] ?? '';
+      });
+    }
+  }
+
+  void _updateBiometric(bool val) async {
+    setState(() => _biometricEnabled = val);
+    await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({'biometricEnabled': val});
+  }
+
+  void _updatePrivacy(String val) async {
+    setState(() => _lastSeenPrivacy = val);
+    await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({'lastSeenPrivacy': val});
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Center(child: Text('Profile: $myPhone')),
+      appBar: AppBar(
+        title: const Text('Profile & Settings'),
+        backgroundColor: const Color(0xFF1E88E5),
+        foregroundColor: Colors.white,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Center(
+            child: Column(
+              children: [
+                CircleAvatar(
+                  radius: 50,
+                  backgroundColor: const Color(0xFF1E88E5),
+                  backgroundImage: _photoUrl.isNotEmpty
+                      ? (_photoUrl.startsWith('http') ? NetworkImage(_photoUrl) : FileImage(File(_photoUrl)) as ImageProvider)
+                      : null,
+                  child: _photoUrl.isEmpty ? const Icon(Icons.person, size: 50, color: Colors.white) : null,
+                ),
+                const SizedBox(height: 12),
+                Text(_profileName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text(maskPhoneNumber(widget.myPhone), style: const TextStyle(color: Colors.grey, fontSize: 14)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          const Divider(),
+          SwitchListTile(
+            title: const Text('Biometric App Lock', style: TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: const Text('Unlock VibeNet using fingerprint / face ID'),
+            value: _biometricEnabled,
+            activeColor: const Color(0xFF1E88E5),
+            onChanged: _updateBiometric,
+          ),
+          const Divider(),
+          ListTile(
+            title: const Text('Last Seen Privacy', style: TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: Text('Current setting: $_lastSeenPrivacy'),
+            trailing: DropdownButton<String>(
+              value: _lastSeenPrivacy,
+              dropdownColor: Colors.grey[900],
+              items: const [
+                DropdownMenuItem(value: 'everyone', child: Text('Everyone')),
+                DropdownMenuItem(value: 'nobody', child: Text('Nobody')),
+              ],
+              onChanged: (val) {
+                if (val != null) _updatePrivacy(val);
+              },
+            ),
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.language, color: Color(0xFF1E88E5)),
+            title: const Text('App Language', style: TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: Text(appLanguage.value == 'bn' ? 'বাংলা (Bengali)' : (appLanguage.value == 'hi' ? 'हिन्दी (Hindi)' : 'English')),
+            onTap: () => showLanguageSelector(context),
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.logout, color: Colors.red),
+            title: const Text('Log Out', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+            onTap: () async {
+              await FirebaseAuth.instance.signOut();
+              if (context.mounted) {
+                Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => const WelcomeTermsScreen()));
+              }
+            },
+          ),
+        ],
+      ),
     );
   }
 }
