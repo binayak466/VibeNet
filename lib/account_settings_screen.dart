@@ -38,32 +38,42 @@ class AccountSettingsScreen extends StatelessWidget {
             icon: Icons.security,
             title: 'Security notifications',
             subtitle: 'Show security alerts for your account',
-            onTap: () {},
+            onTap: () {
+              // Security action
+            },
           ),
           _buildAccountOption(
             icon: Icons.phone_android,
             title: 'Change number',
             subtitle: 'Migrate account to a new phone number',
-            onTap: () {},
+            onTap: () {
+              // Change number action
+            },
           ),
           _buildAccountOption(
             icon: Icons.lock_outline,
             title: 'Two-step verification',
             subtitle: 'Add extra security with a PIN',
-            onTap: () {},
+            onTap: () {
+              // 2SV action
+            },
           ),
           _buildAccountOption(
             icon: Icons.description_outlined,
             title: 'Request account info',
             subtitle: 'Get a report of your account settings',
-            onTap: () {},
+            onTap: () {
+              // Info action
+            },
           ),
           _buildAccountOption(
             icon: Icons.delete_forever,
             title: 'Delete account',
             subtitle: 'Permanently delete your account and data',
             textColor: Colors.redAccent,
-            onTap: () {},
+            onTap: () {
+              // Delete action
+            },
           ),
         ],
       ),
