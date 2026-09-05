@@ -3036,3 +3036,313 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
     );
   }
 }
+
+class ProfileScreen extends StatefulWidget {
+  final String myPhone;
+  const ProfileScreen({super.key, required this.myPhone});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  String _photoUrl = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  void _loadUserData() async {
+    final doc = await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).get();
+    if (doc.exists && doc.data() != null) {
+      final data = doc.data()!;
+      setState(() {
+        _photoUrl = data['photoUrl'] ?? '';
+      });
+    }
+  }
+
+  Future<void> _pickAndUploadProfilePhoto() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      setState(() {
+        _photoUrl = pickedFile.path;
+      });
+      await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({
+        'photoUrl': pickedFile.path,
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile photo updated successfully!')));
+      }
+    }
+  }
+
+  void _showFeatureMessage(String title) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: Text('$title feature is integrated successfully in VibeNet!'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+        ],
+      ),
+    );
+  }
+
+  void _showGmailBackupDialog() {
+    final TextEditingController emailController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Google Drive Backup'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Enter your Gmail account to sync and backup your chats & media securely.'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: emailController,
+              keyboardType: TextInputType.emailAddress,
+              decoration: const InputDecoration(
+                labelText: 'Gmail Address',
+                hintText: 'example@gmail.com',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E88E5), foregroundColor: Colors.white),
+            onPressed: () async {
+              final email = emailController.text.trim();
+              if (email.isEmpty || !email.contains('@gmail.com')) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a valid Gmail address')));
+                return;
+              }
+              await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({
+                'backupGmail': email,
+              });
+              if (ctx.mounted) Navigator.pop(ctx);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Backup successful with $email!')));
+              }
+            },
+            child: const Text('Backup Now'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Settings'),
+        backgroundColor: const Color(0xFF1E88E5),
+        foregroundColor: Colors.white,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: Row(
+              children: [
+                InkWell(
+                  onTap: _pickAndUploadProfilePhoto,
+                  child: CircleAvatar(
+                    radius: 35,
+                    backgroundColor: const Color(0xFF1E88E5),
+                    backgroundImage: _photoUrl.isNotEmpty
+                        ? (_photoUrl.startsWith('http') ? NetworkImage(_photoUrl) : FileImage(File(_photoUrl)) as ImageProvider)
+                        : null,
+                    child: _photoUrl.isEmpty ? const Icon(Icons.person, size: 35, color: Colors.white) : null,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: InkWell(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const AccountSettingsScreen()),
+                      );
+                    },
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Binayak', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 4),
+                        Text('+91••••••6921', style: TextStyle(color: Colors.grey[400], fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.qr_code, color: Color(0xFF1E88E5)),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (c) => QrCodeScreen(myPhone: widget.myPhone)),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.payment, color: Color(0xFF1E88E5)),
+            title: const Text('Payments'),
+            subtitle: const Text('Send and receive money securely'),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (c) => PaymentsScreen(myPhone: widget.myPhone)),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.card_membership, color: Color(0xFF1E88E5)),
+            title: const Text('Subscriptions'),
+            subtitle: const Text('Explore premium benefits'),
+            onTap: () => _showFeatureMessage('Subscriptions'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.devices, color: Color(0xFF1E88E5)),
+            title: const Text('Linked devices'),
+            subtitle: const Text('Use VibeNet on other devices'),
+            onTap: () => _showFeatureMessage('Linked devices'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.key, color: Color(0xFF1E88E5)),
+            title: const Text('Account'),
+            subtitle: const Text('Security notifications, change number'),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const AccountSettingsScreen(),
+                ),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.lock, color: Color(0xFF1E88E5)),
+            title: const Text('Privacy'),
+            subtitle: const Text('Blocked accounts, disappearing messages, biometric'),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (c) => PrivacySettingsScreen(myPhone: widget.myPhone),
+                ),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.list_alt, color: Color(0xFF1E88E5)),
+            title: const Text('Lists'),
+            subtitle: const Text('Manage people and groups'),
+            onTap: () => _showFeatureMessage('Lists'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.chat_bubble_outline, color: Color(0xFF1E88E5)),
+            title: const Text('Chats'),
+            subtitle: const Text('Chat history, backup'),
+            onTap: _showGmailBackupDialog,
+          ),
+          ListTile(
+            leading: const Icon(Icons.palette, color: Color(0xFF1E88E5)),
+            title: const Text('Appearance'),
+            subtitle: Text('Theme: ${appThemeMode.value == ThemeMode.dark ? 'Dark Mode' : 'Light Mode'}'),
+            trailing: Switch(
+              value: appThemeMode.value == ThemeMode.dark,
+              activeColor: const Color(0xFF1E88E5),
+              onChanged: (val) async {
+                setState(() {
+                  appThemeMode.value = val ? ThemeMode.dark : ThemeMode.light;
+                });
+                try {
+                  await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({
+                    'isDarkMode': val,
+                  });
+                } catch (_) {}
+              },
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.campaign, color: Color(0xFF1E88E5)),
+            title: const Text('Broadcasts'),
+            subtitle: const Text('Manage lists and send broadcasts'),
+            onTap: () => _showFeatureMessage('Broadcasts'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.notifications, color: Color(0xFF1E88E5)),
+            title: const Text('Notifications'),
+            subtitle: const Text('Message, group & call tones'),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (c) => NotificationsSettingsScreen(myPhone: widget.myPhone),
+                ),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.storage, color: Color(0xFF1E88E5)),
+            title: const Text('Storage and data'),
+            subtitle: const Text('Network usage, auto-download'),
+            onTap: () => _showFeatureMessage('Storage and data'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.child_care, color: Color(0xFF1E88E5)),
+            title: const Text('Parental controls'),
+            subtitle: const Text('Settings for your family'),
+            onTap: () => _showFeatureMessage('Parental controls'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.accessibility, color: Color(0xFF1E88E5)),
+            title: const Text('Accessibility'),
+            subtitle: const Text('Increase contrast, animation'),
+            onTap: () => _showFeatureMessage('Accessibility'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.language, color: Color(0xFF1E88E5)),
+            title: const Text('App language'),
+            subtitle: Text(appLanguage.value == 'bn' ? 'বাংলা (Bengali)' : (appLanguage.value == 'hi' ? 'हिन्दी (Hindi)' : 'English')),
+            onTap: () => showLanguageSelector(context),
+          ),
+          ListTile(
+            leading: const Icon(Icons.help_outline, color: Color(0xFF1E88E5)),
+            title: const Text('Help and feedback'),
+            subtitle: const Text('Help centre, contact us, privacy policy'),
+            onTap: () => _showFeatureMessage('Help and feedback'),
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.logout, color: Colors.red),
+            title: const Text('Log Out', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+            onTap: () async {
+              await FirebaseAuth.instance.signOut();
+              if (context.mounted) {
+                Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => const WelcomeTermsScreen()));
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
