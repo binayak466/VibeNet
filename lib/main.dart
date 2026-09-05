@@ -2804,6 +2804,84 @@ class _NotificationsSettingsScreenState extends State<NotificationsSettingsScree
   }
 }
 
+class PaymentsScreen extends StatelessWidget {
+  final String myPhone;
+  const PaymentsScreen({super.key, required this.myPhone});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('VibeNet Payments'),
+        backgroundColor: const Color(0xFF1E88E5),
+        foregroundColor: Colors.white,
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [Color(0xFF1E88E5), Color(0xFF42A5F5)]),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('VibeNet UPI Balance', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                      const SizedBox(height: 6),
+                      const Text('₹2,450.00', style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 10),
+                      Text('UPI ID: $myPhone@vibenet', style: const TextStyle(color: Colors.white60, fontSize: 12)),
+                    ],
+                  ),
+                  const CircleAvatar(
+                    radius: 28,
+                    backgroundColor: Colors.white24,
+                    child: Icon(Icons.account_balance_wallet, color: Colors.white, size: 30),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Text('Recent Transactions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            Expanded(
+              child: ListView(
+                children: const [
+                  ListTile(
+                    leading: CircleAvatar(backgroundColor: Colors.green, child: Icon(Icons.arrow_downward, color: Colors.white)),
+                    title: Text('Received from Rahul'),
+                    subtitle: Text('Today, 10:45 AM'),
+                    trailing: Text('+₹500.00', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 15)),
+                  ),
+                  ListTile(
+                    leading: CircleAvatar(backgroundColor: Colors.red, child: Icon(Icons.arrow_upward, color: Colors.white)),
+                    title: Text('Sent to Priya'),
+                    subtitle: Text('Yesterday, 4:20 PM'),
+                    trailing: Text('-₹200.00', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 15)),
+                  ),
+                  ListTile(
+                    leading: CircleAvatar(backgroundColor: Colors.green, child: Icon(Icons.arrow_downward, color: Colors.white)),
+                    title: Text('Quick UPI Transfer'),
+                    subtitle: Text('2 days ago'),
+                    trailing: Text('+₹100.00', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 15)),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class ProfileScreen extends StatefulWidget {
   final String myPhone;
   const ProfileScreen({super.key, required this.myPhone});
@@ -2972,7 +3050,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
             leading: const Icon(Icons.payment, color: Color(0xFF1E88E5)),
             title: const Text('Payments'),
             subtitle: const Text('Send and receive money securely'),
-            onTap: () => _showFeatureMessage('Payments'),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (c) => PaymentsScreen(myPhone: widget.myPhone)),
+              );
+            },
           ),
           ListTile(
             leading: const Icon(Icons.card_membership, color: Color(0xFF1E88E5)),
