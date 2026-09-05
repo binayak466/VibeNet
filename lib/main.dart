@@ -1524,7 +1524,6 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
   }
 }
 
-// ----------------- GROUP CONVERSATION SCREEN -----------------
 class GroupConversationScreen extends StatefulWidget {
   final String myPhone;
   final String groupId;
@@ -1729,7 +1728,6 @@ class _GroupConversationScreenState extends State<GroupConversationScreen> {
   }
 }
 
-// ----------------- CONVERSATION SCREEN -----------------
 class ConversationScreen extends StatefulWidget {
   final String myPhone;
   final String receiverPhone;
@@ -2062,7 +2060,6 @@ class _ConversationScreenState extends State<ConversationScreen> {
   }
 }
 
-// ----------------- CALL SCREEN -----------------
 class CallScreen extends StatefulWidget {
   final String receiverName;
   final String receiverPhone;
@@ -2183,7 +2180,6 @@ class _CallScreenState extends State<CallScreen> {
   }
 }
 
-// ----------------- PRIVACY SETTINGS SCREEN -----------------
 class PrivacySettingsScreen extends StatefulWidget {
   final String myPhone;
   const PrivacySettingsScreen({super.key, required this.myPhone});
@@ -2292,7 +2288,6 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
   }
 }
 
-// ----------------- QR CODE SCREEN -----------------
 class QrCodeScreen extends StatelessWidget {
   final String myPhone;
   const QrCodeScreen({super.key, required this.myPhone});
@@ -2343,7 +2338,6 @@ class QrCodeScreen extends StatelessWidget {
   }
 }
 
-// ----------------- PAYMENTS SCREEN -----------------
 class PaymentsScreen extends StatefulWidget {
   final String myPhone;
   const PaymentsScreen({super.key, required this.myPhone});
@@ -2514,7 +2508,6 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
   }
 }
 
-// ----------------- PROFILE SCREEN -----------------
 class ProfileScreen extends StatefulWidget {
   final String myPhone;
   const ProfileScreen({super.key, required this.myPhone});
@@ -2558,19 +2551,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  void _showFeatureMessage(String title) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(title),
-        content: Text('$title feature is integrated successfully in VibeNet!'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -2599,21 +2579,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: InkWell(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const AccountSettingsScreen()),
-                      );
-                    },
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Binayak', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 4),
-                        Text('+91••••••6921', style: TextStyle(color: Colors.grey[400], fontSize: 13)),
-                      ],
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Binayak', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 4),
+                      Text('+91••••••6921', style: TextStyle(color: Colors.grey[400], fontSize: 13)),
+                    ],
                   ),
                 ),
               ],
@@ -2660,7 +2632,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 }
 
-// ----------------- FACEBOOK STYLE FEED SCREEN -----------------
 class FeedScreen extends StatelessWidget {
   final String myPhone;
   const FeedScreen({super.key, required this.myPhone});
@@ -2705,7 +2676,7 @@ class FeedScreen extends StatelessWidget {
                         child: Text(caption, style: const TextStyle(fontSize: 15)),
                       ),
                     const SizedBox(height: 8),
-                    if (imageUrl.isNotEmpty && imageUrl.toString().isNotEmpty)
+                    if (imageUrl.isNotEmpty)
                       Image.file(File(imageUrl), width: double.infinity, height: 250, fit: BoxFit.cover),
                     const Divider(height: 1),
                     Row(
@@ -2727,7 +2698,6 @@ class FeedScreen extends StatelessWidget {
   }
 }
 
-// ----------------- CREATE POST SCREEN -----------------
 class CreatePostScreen extends StatefulWidget {
   final String myPhone;
   const CreatePostScreen({super.key, required this.myPhone});
@@ -2824,7 +2794,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   }
 }
 
-// ----------------- REELS SCREEN -----------------
 class ReelsScreen extends StatelessWidget {
   const ReelsScreen({super.key});
 
