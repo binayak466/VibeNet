@@ -377,7 +377,7 @@ class _LoginScreenState extends State<LoginScreen> {
       _navigateToNext(_fullPhoneNumber);
     } catch (e) {
       setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Invalid OTP! Please try again.')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid OTP! Please try again.')));
     }
   }
 
@@ -1524,237 +1524,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
   }
 }
 
-// ----------------- FACEBOOK STYLE FEED SCREEN -----------------
-class FeedScreen extends StatelessWidget {
-  final String myPhone;
-  const FeedScreen({super.key, required this.myPhone});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance.collection('posts').orderBy('timestamp', descending: true).snapshots(),
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-          final posts = snapshot.data!.docs;
-
-          if (posts.isEmpty) {
-            return const Center(
-              child: Text('No posts in Feed yet. Be the first to create one!', style: TextStyle(color: Colors.grey)),
-            );
-          }
-
-          return ListView.builder(
-            itemCount: posts.length,
-            itemBuilder: (context, index) {
-              final post = posts[index].data() as Map<String, dynamic>;
-              final caption = post['caption'] ?? '';
-              final imageUrl = post['imageUrl'] ?? '';
-              final posterPhone = post['phone'] ?? '';
-
-              return Card(
-                margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-                elevation: 2,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ListTile(
-                      leading: const CircleAvatar(child: Icon(Icons.person)),
-                      title: Text(posterPhone, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      subtitle: const Text('Just now'),
-                    ),
-                    if (caption.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                        child: Text(caption, style: const TextStyle(fontSize: 15)),
-                      ),
-                    const SizedBox(height: 8),
-                    if (imageUrl.isNotEmpty && imageUrl.toString().isNotEmpty)
-                      Image.file(File(imageUrl), width: double.infinity, height: 250, fit: BoxFit.cover),
-                    const Divider(height: 1),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        TextButton.icon(onPressed: () {}, icon: const Icon(Icons.thumb_up_alt_outlined), label: const Text('Like')),
-                        TextButton.icon(onPressed: () {}, icon: const Icon(Icons.comment_outlined), label: const Text('Comment')),
-                        TextButton.icon(onPressed: () {}, icon: const Icon(Icons.share_outlined), label: const Text('Share')),
-                      ],
-                    ),
-                  ],
-                ),
-              );
-            },
-          );
-        },
-      ),
-    );
-  }
-}
-
-// ----------------- CREATE POST SCREEN -----------------
-class CreatePostScreen extends StatefulWidget {
-  final String myPhone;
-  const CreatePostScreen({super.key, required this.myPhone});
-
-  @override
-  State<CreatePostScreen> createState() => _CreatePostScreenState();
-}
-
-class _CreatePostScreenState extends State<CreatePostScreen> {
-  final TextEditingController _captionController = TextEditingController();
-  String? _selectedImagePath;
-
-  Future<void> _pickImage() async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-    if (pickedFile != null) {
-      setState(() {
-        _selectedImagePath = pickedFile.path;
-      });
-    }
-  }
-
-  void _uploadPost() async {
-    final caption = _captionController.text.trim();
-    if (caption.isEmpty && _selectedImagePath == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please write something or select an image')));
-      return;
-    }
-
-    await FirebaseFirestore.instance.collection('posts').add({
-      'phone': widget.myPhone,
-      'caption': caption,
-      'imageUrl': _selectedImagePath ?? '',
-      'timestamp': FieldValue.serverTimestamp(),
-    });
-
-    _captionController.clear();
-    setState(() {
-      _selectedImagePath = null;
-    });
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Post published successfully to Feed!')));
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            TextField(
-              controller: _captionController,
-              maxLines: 4,
-              decoration: const InputDecoration(
-                hintText: "What's on your mind?",
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 16),
-            if (_selectedImagePath != null)
-              Stack(
-                alignment: Alignment.topRight,
-                children: [
-                  Image.file(File(_selectedImagePath!), height: 180, width: double.infinity, fit: BoxFit.cover),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white),
-                    onPressed: () => setState(() => _selectedImagePath = null),
-                  ),
-                ],
-              ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: _pickImage,
-              icon: const Icon(Icons.photo_library),
-              label: const Text('Add Photo from Gallery'),
-            ),
-            const Spacer(),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1E88E5),
-                foregroundColor: Colors.white,
-                minimumSize: const Size.fromHeight(50),
-              ),
-              onPressed: _uploadPost,
-              child: const Text('Post to Feed', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ----------------- REELS SCREEN -----------------
-class ReelsScreen extends StatelessWidget {
-  const ReelsScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final List<Map<String, String>> dummyReels = [
-      {'user': 'Rahul', 'caption': 'VibeNet First Reel! 🚀', 'video': 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'},
-      {'user': 'Priya', 'caption': 'Enjoying the evening ✨', 'video': 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3'},
-    ];
-
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: PageView.builder(
-        scrollDirection: Axis.vertical,
-        itemCount: dummyReels.length,
-        itemBuilder: (context, index) {
-          final reel = dummyReels[index];
-          return Stack(
-            fit: StackFit.expand,
-            children: [
-              Container(
-                color: Colors.grey[900],
-                child: Center(
-                  child: Text(
-                    'Reel Video Player\n(${reel['user']})',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white, fontSize: 18),
-                  ),
-                ),
-              ),
-              Positioned(
-                bottom: 40,
-                left: 16,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('@${reel['user']}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-                    const SizedBox(height: 8),
-                    Text(reel['caption']!, style: const TextStyle(color: Colors.white70, fontSize: 14)),
-                  ],
-                ),
-              ),
-              Positioned(
-                bottom: 40,
-                right: 16,
-                child: Column(
-                  children: [
-                    IconButton(icon: const Icon(Icons.favorite, color: Colors.white, size: 30), onPressed: () {}),
-                    const Text('1.2K', style: TextStyle(color: Colors.white, fontSize: 12)),
-                    const SizedBox(height: 16),
-                    IconButton(icon: const Icon(Icons.comment, color: Colors.white, size: 30), onPressed: () {}),
-                    const Text('45', style: TextStyle(color: Colors.white, fontSize: 12)),
-                    const SizedBox(height: 16),
-                    IconButton(icon: const Icon(Icons.share, color: Colors.white, size: 30), onPressed: () {}),
-                  ],
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
-
-// ----------------- অন্যান্য স্ক্রিন ক্লাসগুলো অপরিবর্তিত রাখা হলো -----------------
+// ----------------- GROUP CONVERSATION SCREEN -----------------
 class GroupConversationScreen extends StatefulWidget {
   final String myPhone;
   final String groupId;
@@ -1959,6 +1729,7 @@ class _GroupConversationScreenState extends State<GroupConversationScreen> {
   }
 }
 
+// ----------------- CONVERSATION SCREEN -----------------
 class ConversationScreen extends StatefulWidget {
   final String myPhone;
   final String receiverPhone;
@@ -1991,19 +1762,6 @@ class _ConversationScreenState extends State<ConversationScreen> {
         'lastActive': FieldValue.serverTimestamp(),
       });
     } catch (_) {}
-  }
-
-  void _send() async {
-    final text = _msgCtrl.text.trim();
-    if (text.isEmpty) return;
-    _msgCtrl.clear();
-    await FirebaseFirestore.instance.collection('chats').add({
-      'sender': widget.myPhone,
-      'receiver': widget.receiverPhone,
-      'text': text,
-      'isSeen': false,
-      'timestamp': FieldValue.serverTimestamp(),
-    });
   }
 
   void _sendMediaMessage(String mediaType, String content) async {
@@ -2176,22 +1934,6 @@ class _ConversationScreenState extends State<ConversationScreen> {
               );
             },
           ),
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert),
-            onSelected: (value) {
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$value selected')));
-            },
-            itemBuilder: (BuildContext context) => [
-              const PopupMenuItem(value: 'New group', child: Text('New group')),
-              const PopupMenuItem(value: 'View contact', child: Text('View contact')),
-              const PopupMenuItem(value: 'Search', child: Text('Search')),
-              const PopupMenuItem(value: 'Media, links, and docs', child: Text('Media, links, and docs')),
-              const PopupMenuItem(value: 'Mute notifications', child: Text('Mute notifications')),
-              const PopupMenuItem(value: 'Disappearing messages', child: Text('Disappearing messages')),
-              const PopupMenuItem(value: 'Chat theme', child: Text('Chat theme')),
-              const PopupMenuItem(value: 'More', child: Text('More')),
-            ],
-          ),
         ],
       ),
       body: Column(
@@ -2237,50 +1979,13 @@ class _ConversationScreenState extends State<ConversationScreen> {
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
                               Flexible(
-                                child: data['text'].toString().startsWith('[Gallery Image]') || data['text'].toString().startsWith('[Camera Photo]') || data['text'].toString().startsWith('[Document]')
-                                    ? ClipRRect(
-                                        borderRadius: BorderRadius.circular(8),
-                                        child: Image.file(
-                                          File(data['text'].toString().split('] ').last),
-                                          height: 150,
-                                          width: 200,
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (context, error, stackTrace) => Text(data['text'], style: TextStyle(fontSize: 14, color: isMe ? Colors.white : (isDark ? Colors.white : Colors.black87))),
-                                        ),
-                                      )
-                                    : (data['text'].toString().startsWith('[')
-                                        ? Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(
-                                                data['text'].toString().contains('Location')
-                                                    ? Icons.location_on
-                                                    : (data['text'].toString().contains('Contact')
-                                                        ? Icons.person
-                                                        : Icons.attachment),
-                                                color: isMe ? Colors.white : (isDark ? Colors.white70 : Colors.black87),
-                                                size: 20,
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Flexible(
-                                                child: Text(
-                                                  data['text'] ?? '',
-                                                  style: TextStyle(
-                                                    fontSize: 15,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: isMe ? Colors.white : (isDark ? Colors.white : Colors.black87),
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          )
-                                        : Text(
-                                            data['text'] ?? '',
-                                            style: TextStyle(
-                                              fontSize: 15,
-                                              color: isMe ? Colors.white : (isDark ? Colors.white : Colors.black87),
-                                            ),
-                                          )),
+                                child: Text(
+                                  data['text'] ?? '',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    color: isMe ? Colors.white : (isDark ? Colors.white : Colors.black87),
+                                  ),
+                                ),
                               ),
                               const SizedBox(width: 6),
                               if (isMe)
@@ -2313,67 +2018,6 @@ class _ConversationScreenState extends State<ConversationScreen> {
                     ),
                     child: Row(
                       children: [
-                        IconButton(
-                          icon: Icon(Icons.emoji_emotions_outlined, color: isDark ? Colors.grey[400] : Colors.grey),
-                          onPressed: () {
-                            showModalBottomSheet(
-                              context: context,
-                              backgroundColor: isDark ? const Color(0xFF1F2C34) : Colors.white,
-                              shape: const RoundedRectangleBorder(
-                                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                              ),
-                              builder: (ctx) => Container(
-                                padding: const EdgeInsets.all(16),
-                                height: 300,
-                                child: Column(
-                                  children: [
-                                    Container(
-                                      width: 40,
-                                      height: 4,
-                                      decoration: BoxDecoration(
-                                        color: Colors.grey[600],
-                                        borderRadius: BorderRadius.circular(2),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Text(
-                                      'WhatsApp Style Emojis',
-                                      style: TextStyle(color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.bold, fontSize: 16),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Expanded(
-                                      child: GridView.count(
-                                        crossAxisCount: 6,
-                                        children: [
-                                          '😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃', '😉', '😊',
-                                          '😇', '🥰', '😍', '🤩', '😘', '😗', '😚', '😙', '😋', '😛', '😜', '🤪',
-                                          '😝', '🤑', '🤗', '🤭', '🤫', '🤔', '🤐', '🤨', '😐', '😑', '😶', '😏',
-                                          '😒', '🙄', '😬', '🤥', '😌', '😔', '😪', '🤤', '😴', '😷', '🤒', '🤕',
-                                          '🤢', '🤮', '🤧', '🥵', '🥶', '🥴', '😵', '🤯', '🤠', '🥳', '😎', '🤓',
-                                          '🧐', '😕', '😟', '🙁', '😮', '😯', '😲', '😳', '🥺', '😦', '😧', '👍',
-                                          '👎', '👏', '🙌', '👐', '🤲', '🤝', '🙏', '✍️', '💅', '🤳', '💪', '❤️',
-                                          '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❣️', '💕', '🔥',
-                                          '⭐', '🌟', '✨', '⚡', '💥', '🎉', '🎊', '🎈', '🎁', '🏆', '⚽', '🏀'
-                                        ].map((emoji) => InkWell(
-                                              onTap: () {
-                                                setState(() {
-                                                  _msgCtrl.text += emoji;
-                                                });
-                                                Navigator.pop(ctx);
-                                              },
-                                              child: Center(
-                                                child: Text(emoji, style: const TextStyle(fontSize: 28)),
-                                              ),
-                                            ))
-                                            .toList(),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
                         Expanded(
                           child: TextField(
                             controller: _msgCtrl,
@@ -2385,103 +2029,6 @@ class _ConversationScreenState extends State<ConversationScreen> {
                             ),
                           ),
                         ),
-                        IconButton(
-                          icon: Icon(Icons.attach_file, color: isDark ? Colors.grey[400] : Colors.grey),
-                          onPressed: () {
-                            showModalBottomSheet(
-                              context: context,
-                              backgroundColor: isDark ? const Color(0xFF1F2C34) : Colors.white,
-                              shape: const RoundedRectangleBorder(
-                                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                              ),
-                              builder: (ctx) => Container(
-                                padding: const EdgeInsets.all(20),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Container(
-                                      width: 40,
-                                      height: 4,
-                                      decoration: BoxDecoration(
-                                        color: Colors.grey[600],
-                                        borderRadius: BorderRadius.circular(2),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 20),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                                      children: [
-                                        _buildAttachmentItem(Icons.photo_library, Colors.blue, 'Gallery', () async {
-                                          Navigator.pop(ctx);
-                                          final picker = ImagePicker();
-                                          final image = await picker.pickImage(source: ImageSource.gallery);
-                                          if (image != null) {
-                                            _sendMediaMessage('Gallery Image', image.path);
-                                          }
-                                        }),
-                                        _buildAttachmentItem(Icons.location_on, Colors.green, 'Location', () {
-                                          Navigator.pop(ctx);
-                                          _sendMediaMessage('Location', 'Live GPS Location Shared');
-                                        }),
-                                        _buildAttachmentItem(Icons.person, Colors.lightBlueAccent, 'Contact', () {
-                                          Navigator.pop(ctx);
-                                          _sendMediaMessage('Contact', 'Shared a Contact');
-                                        }),
-                                        _buildAttachmentItem(Icons.insert_drive_file, Colors.purpleAccent, 'Document', () async {
-                                          Navigator.pop(ctx);
-                                          final picker = ImagePicker();
-                                          final docFile = await picker.pickImage(source: ImageSource.gallery);
-                                          if (docFile != null) {
-                                            _sendMediaMessage('Document', docFile.path);
-                                          }
-                                        }),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 20),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                                      children: [
-                                        _buildAttachmentItem(Icons.poll, Colors.amber, 'Poll', () {
-                                          Navigator.pop(ctx);
-                                          _sendMediaMessage('Poll', 'Created a new Poll');
-                                        }),
-                                        _buildAttachmentItem(Icons.currency_rupee, Colors.teal, 'Payment', () {
-                                          Navigator.pop(ctx);
-                                          _sendMediaMessage('Payment', '₹500.00 Sent via VibeNet UPI');
-                                        }),
-                                        _buildAttachmentItem(Icons.event, Colors.pinkAccent, 'Event', () {
-                                          Navigator.pop(ctx);
-                                          _sendMediaMessage('Event', 'Scheduled Meetup Event');
-                                        }),
-                                        _buildAttachmentItem(Icons.auto_awesome, Colors.blueAccent, 'AI images', () {
-                                          Navigator.pop(ctx);
-                                          _sendMediaMessage('AI Image', 'Generated AI Artwork');
-                                        }),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 10),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                        IconButton(
-                          icon: Icon(Icons.currency_rupee, color: isDark ? Colors.grey[400] : Colors.grey),
-                          onPressed: () {
-                            _sendMediaMessage('Payment', '₹100.00 Quick UPI Transfer');
-                          },
-                        ),
-                        IconButton(
-                          icon: Icon(Icons.camera_alt_outlined, color: isDark ? Colors.grey[400] : Colors.grey),
-                          onPressed: () async {
-                            final picker = ImagePicker();
-                            final photo = await picker.pickImage(source: ImageSource.camera);
-                            if (photo != null) {
-                              _sendMediaMessage('Camera Photo', photo.path);
-                            }
-                          },
-                        ),
                       ],
                     ),
                   ),
@@ -2491,10 +2038,18 @@ class _ConversationScreenState extends State<ConversationScreen> {
                   radius: 24,
                   backgroundColor: const Color(0xFF1E88E5),
                   child: IconButton(
-                    icon: const Icon(Icons.mic, color: Colors.white),
+                    icon: const Icon(Icons.send, color: Colors.white),
                     onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Voice Note Recorded & Sent')));
-                      _sendMediaMessage('Voice Note', 'Audio Message (0:15)');
+                      final text = _msgCtrl.text.trim();
+                      if (text.isEmpty) return;
+                      _msgCtrl.clear();
+                      FirebaseFirestore.instance.collection('chats').add({
+                        'sender': widget.myPhone,
+                        'receiver': widget.receiverPhone,
+                        'text': text,
+                        'isSeen': false,
+                        'timestamp': FieldValue.serverTimestamp(),
+                      });
                     },
                   ),
                 ),
@@ -2507,20 +2062,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
   }
 }
 
-class UserProfileScreen extends StatelessWidget {
-  final String receiverPhone;
-  final String receiverName;
-  const UserProfileScreen({super.key, required this.receiverPhone, required this.receiverName});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(receiverName)),
-      body: Center(child: Text(receiverPhone)),
-    );
-  }
-}
-
+// ----------------- CALL SCREEN -----------------
 class CallScreen extends StatefulWidget {
   final String receiverName;
   final String receiverPhone;
@@ -2620,24 +2162,6 @@ class _CallScreenState extends State<CallScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
-                        Column(
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.more_horiz, color: Colors.white),
-                              onPressed: () {},
-                            ),
-                            const Text('More', style: TextStyle(color: Colors.white, fontSize: 12)),
-                          ],
-                        ),
-                        Column(
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.screen_share, color: Colors.white),
-                              onPressed: () {},
-                            ),
-                            const Text('Share', style: TextStyle(color: Colors.white, fontSize: 12)),
-                          ],
-                        ),
                         CircleAvatar(
                           radius: 28,
                           backgroundColor: Colors.red,
@@ -2659,6 +2183,7 @@ class _CallScreenState extends State<CallScreen> {
   }
 }
 
+// ----------------- PRIVACY SETTINGS SCREEN -----------------
 class PrivacySettingsScreen extends StatefulWidget {
   final String myPhone;
   const PrivacySettingsScreen({super.key, required this.myPhone});
@@ -2767,6 +2292,7 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
   }
 }
 
+// ----------------- QR CODE SCREEN -----------------
 class QrCodeScreen extends StatelessWidget {
   final String myPhone;
   const QrCodeScreen({super.key, required this.myPhone});
@@ -2779,266 +2305,45 @@ class QrCodeScreen extends StatelessWidget {
         title: const Text('QR code', style: TextStyle(color: Colors.white)),
         backgroundColor: const Color(0xFF0B141A),
         iconTheme: const IconThemeData(color: Colors.white),
-        actions: [
-          IconButton(icon: const Icon(Icons.share), onPressed: () {}),
-          IconButton(icon: const Icon(Icons.more_vert), onPressed: () {}),
-        ],
       ),
-      body: Column(
-        children: [
-          const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: const [
-              Text('MY CODE', style: TextStyle(color: Color(0xFF00A884), fontWeight: FontWeight.bold)),
-              SizedBox(width: 40),
-              Text('SCAN CODE', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+      body: Center(
+        child: Container(
+          width: 320,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: const Color(0xFF111B21),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircleAvatar(
+                radius: 30,
+                backgroundColor: Color(0xFF00A884),
+                child: Icon(Icons.person, size: 35, color: Colors.white),
+              ),
+              const SizedBox(height: 12),
+              const Text('Binayak', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              const Text('VibeNet contact', style: TextStyle(color: Colors.grey, fontSize: 13)),
+              const SizedBox(height: 24),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.qr_code_2, size: 200, color: Colors.black),
+              ),
             ],
           ),
-          const Spacer(),
-          Center(
-            child: Container(
-              width: 320,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: const Color(0xFF111B21),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const CircleAvatar(
-                    radius: 30,
-                    backgroundColor: Color(0xFF00A884),
-                    child: Icon(Icons.person, size: 35, color: Colors.white),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text('Binayak', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 4),
-                  const Text('VibeNet contact', style: TextStyle(color: Colors.grey, fontSize: 13)),
-                  const SizedBox(height: 24),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(Icons.qr_code_2, size: 200, color: Colors.black),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const Spacer(),
-          Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Text(
-              'Your QR code is private. If you share it with someone, they can scan it with their camera to add you as a contact.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey[400], fontSize: 13),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class NotificationsSettingsScreen extends StatefulWidget {
-  final String myPhone;
-  const NotificationsSettingsScreen({super.key, required this.myPhone});
-
-  @override
-  State<NotificationsSettingsScreen> createState() => _NotificationsSettingsScreenState();
-}
-
-class _NotificationsSettingsScreenState extends State<NotificationsSettingsScreen> {
-  bool _conversationTones = true;
-  bool _reminders = true;
-  bool _msgHighPriority = true;
-  bool _msgReaction = true;
-  bool _groupHighPriority = true;
-  bool _groupReaction = true;
-  bool _statusHighPriority = true;
-  bool _statusReactions = true;
-
-  String _msgTone = 'Default (Encounter)';
-  String _groupTone = 'Default (Encounter)';
-  String _callRingtone = 'Default (Lawn Lifestyle)';
-  String _statusTone = 'Default (Encounter)';
-
-  void _showTonePicker(String title, String currentTone, Function(String) onSelected) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Select $title'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: ['Default (Encounter)', 'Chimes', 'Bell', 'Ripple', 'Silent'].map((tone) {
-            return ListTile(
-              title: Text(tone),
-              trailing: currentTone == tone ? const Icon(Icons.check, color: Color(0xFF1E88E5)) : null,
-              onTap: () {
-                onSelected(tone);
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$title updated to $tone')));
-              },
-            );
-          }).toList(),
         ),
       ),
     );
   }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Notifications'),
-        backgroundColor: const Color(0xFF1E88E5),
-        foregroundColor: Colors.white,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        children: [
-          SwitchListTile(
-            title: const Text('Conversation tones', style: TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: const Text('Play sounds for incoming and outgoing messages.'),
-            value: _conversationTones,
-            activeColor: const Color(0xFF1E88E5),
-            onChanged: (val) {
-              setState(() => _conversationTones = val);
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(val ? 'Conversation tones enabled' : 'Conversation tones disabled')));
-            },
-          ),
-          SwitchListTile(
-            title: const Text('Reminders', style: TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: const Text('Get occasional reminders about messages, calls or status updates you haven’t seen'),
-            value: _reminders,
-            activeColor: const Color(0xFF1E88E5),
-            onChanged: (val) {
-              setState(() => _reminders = val);
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(val ? 'Reminders enabled' : 'Reminders disabled')));
-            },
-          ),
-          const Divider(),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            child: Text('Messages', style: TextStyle(color: Color(0xFF1E88E5), fontWeight: FontWeight.bold, fontSize: 13)),
-          ),
-          ListTile(
-            title: const Text('Notification tone'),
-            subtitle: Text(_msgTone),
-            onTap: () => _showTonePicker('Message Notification Tone', _msgTone, (val) => setState(() => _msgTone = val)),
-          ),
-          ListTile(
-            title: const Text('Vibrate'),
-            subtitle: const Text('Default'),
-            onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vibration pattern set to Default'))),
-          ),
-          ListTile(
-            title: const Text('Light'),
-            subtitle: const Text('White'),
-            onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Notification LED light set to White'))),
-          ),
-          SwitchListTile(
-            title: const Text('Use high priority notifications'),
-            subtitle: const Text('Show previews of notifications at the top of the screen'),
-            value: _msgHighPriority,
-            activeColor: const Color(0xFF1E88E5),
-            onChanged: (val) => setState(() => _msgHighPriority = val),
-          ),
-          SwitchListTile(
-            title: const Text('Reaction notifications'),
-            subtitle: const Text('Show notifications for reactions to messages you send'),
-            value: _msgReaction,
-            activeColor: const Color(0xFF1E88E5),
-            onChanged: (val) => setState(() => _msgReaction = val),
-          ),
-          const Divider(),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            child: Text('Groups', style: TextStyle(color: Color(0xFF1E88E5), fontWeight: FontWeight.bold, fontSize: 13)),
-          ),
-          ListTile(
-            title: const Text('Notification tone'),
-            subtitle: Text(_groupTone),
-            onTap: () => _showTonePicker('Group Notification Tone', _groupTone, (val) => setState(() => _groupTone = val)),
-          ),
-          ListTile(
-            title: const Text('Vibrate'),
-            subtitle: const Text('Default'),
-            onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Group vibration set to Default'))),
-          ),
-          ListTile(
-            title: const Text('Light'),
-            subtitle: const Text('White'),
-            onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Group LED light set to White'))),
-          ),
-          SwitchListTile(
-            title: const Text('Use high priority notifications'),
-            subtitle: const Text('Show previews of notifications at the top of the screen'),
-            value: _groupHighPriority,
-            activeColor: const Color(0xFF1E88E5),
-            onChanged: (val) => setState(() => _groupHighPriority = val),
-          ),
-          SwitchListTile(
-            title: const Text('Reaction notifications'),
-            subtitle: const Text('Show notifications for reactions to messages you send'),
-            value: _groupReaction,
-            activeColor: const Color(0xFF1E88E5),
-            onChanged: (val) => setState(() => _groupReaction = val),
-          ),
-          const Divider(),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            child: Text('Calls', style: TextStyle(color: Color(0xFF1E88E5), fontWeight: FontWeight.bold, fontSize: 13)),
-          ),
-          ListTile(
-            title: const Text('Ringtone'),
-            subtitle: Text(_callRingtone),
-            onTap: () => _showTonePicker('Call Ringtone', _callRingtone, (val) => setState(() => _callRingtone = val)),
-          ),
-          ListTile(
-            title: const Text('Vibrate'),
-            subtitle: const Text('Default'),
-            onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Call vibration set to Default'))),
-          ),
-          const Divider(),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            child: Text('Status', style: TextStyle(color: Color(0xFF1E88E5), fontWeight: FontWeight.bold, fontSize: 13)),
-          ),
-          ListTile(
-            title: const Text('Notification tone'),
-            subtitle: Text(_statusTone),
-            onTap: () => _showTonePicker('Status Notification Tone', _statusTone, (val) => setState(() => _statusTone = val)),
-          ),
-          ListTile(
-            title: const Text('Vibrate'),
-            subtitle: const Text('Default'),
-            onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Status vibration set to Default'))),
-          ),
-          SwitchListTile(
-            title: const Text('Use high priority notifications'),
-            subtitle: const Text('Show previews of notifications at the top of the screen'),
-            value: _statusHighPriority,
-            activeColor: const Color(0xFF1E88E5),
-            onChanged: (val) => setState(() => _statusHighPriority = val),
-          ),
-          SwitchListTile(
-            title: const Text('Reactions'),
-            subtitle: const Text('Show notifications when you get likes on a status'),
-            value: _statusReactions,
-            activeColor: const Color(0xFF1E88E5),
-            onChanged: (val) => setState(() => _statusReactions = val),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
+// ----------------- PAYMENTS SCREEN -----------------
 class PaymentsScreen extends StatefulWidget {
   final String myPhone;
   const PaymentsScreen({super.key, required this.myPhone});
@@ -3102,12 +2407,6 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E88E5), foregroundColor: Colors.white),
             onPressed: () {
-              final recipient = upiController.text.trim();
-              final amount = amountController.text.trim();
-              if (recipient.isEmpty || amount.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter valid details and amount')));
-                return;
-              }
               Navigator.pop(ctx);
               Navigator.push(
                 context,
@@ -3121,36 +2420,6 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
     );
   }
 
-  void _scanQrCode() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Scan QR Code'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              height: 200,
-              width: 200,
-              decoration: BoxDecoration(
-                border: Border.all(color: const Color(0xFF1E88E5), width: 2),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Center(
-                child: Icon(Icons.qr_code_scanner, size: 80, color: Color(0xFF1E88E5)),
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text('Align QR code within the frame to scan & pay instantly.', textAlign: TextAlign.center, style: TextStyle(fontSize: 13)),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -3158,13 +2427,6 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
         title: const Text('VibeNet Payments'),
         backgroundColor: const Color(0xFF1E88E5),
         foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.qr_code_scanner),
-            tooltip: 'Scan QR',
-            onPressed: _scanQrCode,
-          ),
-        ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16.0),
@@ -3192,22 +2454,6 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                 Text(_isBalanceVisible ? '₹2,450.00' : '••••••••', style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 10),
                 Text('UPI ID: ${widget.myPhone}@vibenet', style: const TextStyle(color: Colors.white60, fontSize: 12)),
-                const Divider(color: Colors.white24, height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    TextButton.icon(
-                      onPressed: () => setState(() => _isBalanceVisible = true),
-                      icon: const Icon(Icons.account_balance_wallet, color: Colors.white, size: 18),
-                      label: const Text('Check Balance', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                    ),
-                    TextButton.icon(
-                      onPressed: _scanQrCode,
-                      icon: const Icon(Icons.qr_code, color: Colors.white, size: 18),
-                      label: const Text('Scan & Pay', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                    ),
-                  ],
-                ),
               ],
             ),
           ),
@@ -3242,27 +2488,6 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
             icon: const Icon(Icons.payment),
             label: const Text('Pay via Razorpay (Gateway)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ),
-          const SizedBox(height: 24),
-          const Text('Recent Transactions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 12),
-          ListView(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            children: const [
-              ListTile(
-                leading: CircleAvatar(backgroundColor: Colors.green, child: Icon(Icons.arrow_downward, color: Colors.white)),
-                title: Text('Received from Rahul'),
-                subtitle: Text('Today, 10:45 AM'),
-                trailing: Text('+₹500.00', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 15)),
-              ),
-              ListTile(
-                leading: CircleAvatar(backgroundColor: Colors.red, child: Icon(Icons.arrow_upward, color: Colors.white)),
-                title: Text('Sent to Priya'),
-                subtitle: Text('Yesterday, 4:20 PM'),
-                trailing: Text('-₹200.00', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 15)),
-              ),
-            ],
-          ),
         ],
       ),
     );
@@ -3289,6 +2514,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
   }
 }
 
+// ----------------- PROFILE SCREEN -----------------
 class ProfileScreen extends StatefulWidget {
   final String myPhone;
   const ProfileScreen({super.key, required this.myPhone});
@@ -3345,56 +2571,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  void _showGmailBackupDialog() {
-    final TextEditingController emailController = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Google Drive Backup'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Enter your Gmail account to sync and backup your chats & media securely.'),
-            const SizedBox(height: 12),
-            TextField(
-              controller: emailController,
-              keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(
-                labelText: 'Gmail Address',
-                hintText: 'example@gmail.com',
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E88E5), foregroundColor: Colors.white),
-            onPressed: () async {
-              final email = emailController.text.trim();
-              if (email.isEmpty || !email.contains('@gmail.com')) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a valid Gmail address')));
-                return;
-              }
-              await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({
-                'backupGmail': email,
-              });
-              if (ctx.mounted) Navigator.pop(ctx);
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Backup successful with $email!')));
-              }
-            },
-            child: const Text('Backup Now'),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -3440,15 +2616,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.qr_code, color: Color(0xFF1E88E5)),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (c) => QrCodeScreen(myPhone: widget.myPhone)),
-                    );
-                  },
-                ),
               ],
             ),
           ),
@@ -3465,31 +2632,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             },
           ),
           ListTile(
-            leading: const Icon(Icons.card_membership, color: Color(0xFF1E88E5)),
-            title: const Text('Subscriptions'),
-            subtitle: const Text('Explore premium benefits'),
-            onTap: () => _showFeatureMessage('Subscriptions'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.devices, color: Color(0xFF1E88E5)),
-            title: const Text('Linked devices'),
-            subtitle: const Text('Use VibeNet on other devices'),
-            onTap: () => _showFeatureMessage('Linked devices'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.key, color: Color(0xFF1E88E5)),
-            title: const Text('Account'),
-            subtitle: const Text('Security notifications, change number'),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const AccountSettingsScreen(),
-                ),
-              );
-            },
-          ),
-          ListTile(
             leading: const Icon(Icons.lock, color: Color(0xFF1E88E5)),
             title: const Text('Privacy'),
             subtitle: const Text('Blocked accounts, disappearing messages, biometric'),
@@ -3502,87 +2644,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               );
             },
           ),
-          ListTile(
-            leading: const Icon(Icons.list_alt, color: Color(0xFF1E88E5)),
-            title: const Text('Lists'),
-            subtitle: const Text('Manage people and groups'),
-            onTap: () => _showFeatureMessage('Lists'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.chat_bubble_outline, color: Color(0xFF1E88E5)),
-            title: const Text('Chats'),
-            subtitle: const Text('Chat history, backup'),
-            onTap: _showGmailBackupDialog,
-          ),
-          ListTile(
-            leading: const Icon(Icons.palette, color: Color(0xFF1E88E5)),
-            title: const Text('Appearance'),
-            subtitle: Text('Theme: ${appThemeMode.value == ThemeMode.dark ? 'Dark Mode' : 'Light Mode'}'),
-            trailing: Switch(
-              value: appThemeMode.value == ThemeMode.dark,
-              activeColor: const Color(0xFF1E88E5),
-              onChanged: (val) async {
-                setState(() {
-                  appThemeMode.value = val ? ThemeMode.dark : ThemeMode.light;
-                });
-                try {
-                  await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({
-                    'isDarkMode': val,
-                  });
-                } catch (_) {}
-              },
-            ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.campaign, color: Color(0xFF1E88E5)),
-            title: const Text('Broadcasts'),
-            subtitle: const Text('Manage lists and send broadcasts'),
-            onTap: () => _showFeatureMessage('Broadcasts'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.notifications, color: Color(0xFF1E88E5)),
-            title: const Text('Notifications'),
-            subtitle: const Text('Message, group & call tones'),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (c) => NotificationsSettingsScreen(myPhone: widget.myPhone),
-                ),
-              );
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.storage, color: Color(0xFF1E88E5)),
-            title: const Text('Storage and data'),
-            subtitle: const Text('Network usage, auto-download'),
-            onTap: () => _showFeatureMessage('Storage and data'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.child_care, color: Color(0xFF1E88E5)),
-            title: const Text('Parental controls'),
-            subtitle: const Text('Settings for your family'),
-            onTap: () => _showFeatureMessage('Parental controls'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.accessibility, color: Color(0xFF1E88E5)),
-            title: const Text('Accessibility'),
-            subtitle: const Text('Increase contrast, animation'),
-            onTap: () => _showFeatureMessage('Accessibility'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.language, color: Color(0xFF1E88E5)),
-            title: const Text('App language'),
-            subtitle: Text(appLanguage.value == 'bn' ? 'বাংলা (Bengali)' : (appLanguage.value == 'hi' ? 'हिन्दी (Hindi)' : 'English')),
-            onTap: () => showLanguageSelector(context),
-          ),
-          ListTile(
-            leading: const Icon(Icons.help_outline, color: Color(0xFF1E88E5)),
-            title: const Text('Help and feedback'),
-            subtitle: const Text('Help centre, contact us, privacy policy'),
-            onTap: () => _showFeatureMessage('Help and feedback'),
-          ),
-          const Divider(),
           ListTile(
             leading: const Icon(Icons.logout, color: Colors.red),
             title: const Text('Log Out', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
