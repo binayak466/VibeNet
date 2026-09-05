@@ -2804,55 +2804,23 @@ class _NotificationsSettingsScreenState extends State<NotificationsSettingsScree
   }
 }
 
-class ProfileScreen extends StatefulWidget {
+class PaymentsScreen extends StatefulWidget {
   final String myPhone;
-  const ProfileScreen({super.key, required this.myPhone});
+  const PaymentsScreen({super.key, required this.myPhone});
 
   @override
-  State<ProfileScreen> createState() => _ProfileScreenState();
+  State<PaymentsScreen> createState() => _PaymentsScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
-  String _photoUrl = '';
+class _PaymentsScreenState extends State<PaymentsScreen> {
+  bool _isBalanceVisible = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _loadUserData();
-  }
-
-  void _loadUserData() async {
-    final doc = await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).get();
-    if (doc.exists && doc.data() != null) {
-      final data = doc.data()!;
-      setState(() {
-        _photoUrl = data['photoUrl'] ?? '';
-      });
-    }
-  }
-
-  Future<void> _pickAndUploadProfilePhoto() async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-    if (pickedFile != null) {
-      setState(() {
-        _photoUrl = pickedFile.path;
-      });
-      await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({
-        'photoUrl': pickedFile.path,
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile photo updated successfully!')));
-      }
-    }
-  }
-
-  void _showFeatureMessage(String title) {
+  void _showFeatureDialog(String title, String message) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(title),
-        content: Text('$title feature is integrated successfully in VibeNet!'),
+        content: Text(message),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
         ],
@@ -2860,23 +2828,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  void _showGmailBackupDialog() {
-    final TextEditingController emailController = TextEditingController();
+  void _showPayUpiDialog() {
+    final TextEditingController upiController = TextEditingController();
+    final TextEditingController amountController = TextEditingController();
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Google Drive Backup'),
+        title: const Text('Pay via UPI'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Enter your Gmail account to sync and backup your chats & media securely.'),
+            TextField(
+              controller: upiController,
+              decoration: const InputDecoration(
+                labelText: 'UPI ID or Phone Number',
+                hintText: 'e.g. 9876543210@vibenet',
+                border: OutlineInputBorder(),
+              ),
+            ),
             const SizedBox(height: 12),
             TextField(
-              controller: emailController,
-              keyboardType: TextInputType.emailAddress,
+              controller: amountController,
+              keyboardType: TextInputType.number,
               decoration: const InputDecoration(
-                labelText: 'Gmail Address',
-                hintText: 'example@gmail.com',
+                labelText: 'Amount (₹)',
+                hintText: 'Enter amount',
                 border: OutlineInputBorder(),
               ),
             ),
@@ -2889,22 +2866,50 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E88E5), foregroundColor: Colors.white),
-            onPressed: () async {
-              final email = emailController.text.trim();
-              if (email.isEmpty || !email.contains('@gmail.com')) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a valid Gmail address')));
+            onPressed: () {
+              final recipient = upiController.text.trim();
+              final amount = amountController.text.trim();
+              if (recipient.isEmpty || amount.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter valid details and amount')));
                 return;
               }
-              await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({
-                'backupGmail': email,
-              });
-              if (ctx.mounted) Navigator.pop(ctx);
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Backup successful with $email!')));
-              }
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Successfully sent ₹$amount to $recipient!')),
+              );
             },
-            child: const Text('Backup Now'),
+            child: const Text('Pay Now'),
           ),
+        ],
+      ),
+    );
+  }
+
+  void _scanQrCode() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Scan QR Code'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              height: 200,
+              width: 200,
+              decoration: BoxDecoration(
+                border: Border.all(color: const Color(0xFF1E88E5), width: 2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Center(
+                child: Icon(Icons.qr_code_scanner, size: 80, color: Color(0xFF1E88E5)),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text('Align QR code within the frame to scan & pay instantly.', textAlign: TextAlign.center, style: TextStyle(fontSize: 13)),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
         ],
       ),
     );
@@ -2914,200 +2919,118 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Settings'),
+        title: const Text('VibeNet Payments'),
         backgroundColor: const Color(0xFF1E88E5),
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.qr_code_scanner),
+            tooltip: 'Scan QR',
+            onPressed: _scanQrCode,
+          ),
+        ],
       ),
       body: ListView(
-        padding: const EdgeInsets.symmetric(vertical: 10),
+        padding: const EdgeInsets.all(16.0),
         children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            child: Row(
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(colors: [Color(0xFF1E88E5), Color(0xFF42A5F5)]),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                InkWell(
-                  onTap: _pickAndUploadProfilePhoto,
-                  child: CircleAvatar(
-                    radius: 35,
-                    backgroundColor: const Color(0xFF1E88E5),
-                    backgroundImage: _photoUrl.isNotEmpty
-                        ? (_photoUrl.startsWith('http') ? NetworkImage(_photoUrl) : FileImage(File(_photoUrl)) as ImageProvider)
-                        : null,
-                    child: _photoUrl.isEmpty ? const Icon(Icons.person, size: 35, color: Colors.white) : null,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: InkWell(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const AccountSettingsScreen()),
-                      );
-                    },
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Binayak', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 4),
-                        Text('+91••••••6921', style: TextStyle(color: Colors.grey[400], fontSize: 13)),
-                      ],
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('VibeNet UPI Balance', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                    IconButton(
+                      icon: Icon(_isBalanceVisible ? Icons.visibility_off : Icons.visibility, color: Colors.white70, size: 20),
+                      onPressed: () => setState(() => _isBalanceVisible = !_isBalanceVisible),
                     ),
-                  ),
+                  ],
                 ),
-                IconButton(
-                  icon: const Icon(Icons.qr_code, color: Color(0xFF1E88E5)),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (c) => QrCodeScreen(myPhone: widget.myPhone)),
-                    );
-                  },
+                const SizedBox(height: 4),
+                Text(_isBalanceVisible ? '₹2,450.00' : '••••••••', style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 10),
+                Text('UPI ID: ${widget.myPhone}@vibenet', style: const TextStyle(color: Colors.white60, fontSize: 12)),
+                const Divider(color: Colors.white24, height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    TextButton.icon(
+                      onPressed: () => setState(() => _isBalanceVisible = true),
+                      icon: const Icon(Icons.account_balance_wallet, color: Colors.white, size: 18),
+                      label: const Text('Check Balance', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    ),
+                    TextButton.icon(
+                      onPressed: _scanQrCode,
+                      icon: const Icon(Icons.qr_code, color: Colors.white, size: 18),
+                      label: const Text('Scan & Pay', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.payment, color: Color(0xFF1E88E5)),
-            title: const Text('Payments'),
-            subtitle: const Text('Send and receive money securely'),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (c) => PaymentsScreen(myPhone: widget.myPhone)),
-              );
-            },
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildQuickActionButton(Icons.send, 'Pay UPI', _showPayUpiDialog),
+              _buildQuickActionButton(Icons.qr_code, 'My QR', _scanQrCode),
+              _buildQuickActionButton(Icons.account_balance, 'Bank Account', () => _showFeatureDialog('Bank Accounts', 'Punjab National Bank A/C linked securely (•••• 6921).')),
+            ],
           ),
-          ListTile(
-            leading: const Icon(Icons.card_membership, color: Color(0xFF1E88E5)),
-            title: const Text('Subscriptions'),
-            subtitle: const Text('Explore premium benefits'),
-            onTap: () => _showFeatureMessage('Subscriptions'),
+          const SizedBox(height: 24),
+          const Text('Recent Transactions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
+          ListView(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            children: const [
+              ListTile(
+                leading: CircleAvatar(backgroundColor: Colors.green, child: Icon(Icons.arrow_downward, color: Colors.white)),
+                title: Text('Received from Rahul'),
+                subtitle: Text('Today, 10:45 AM'),
+                trailing: Text('+₹500.00', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 15)),
+              ),
+              ListTile(
+                leading: CircleAvatar(backgroundColor: Colors.red, child: Icon(Icons.arrow_upward, color: Colors.white)),
+                title: Text('Sent to Priya'),
+                subtitle: Text('Yesterday, 4:20 PM'),
+                trailing: Text('-₹200.00', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 15)),
+              ),
+              ListTile(
+                leading: CircleAvatar(backgroundColor: Colors.green, child: Icon(Icons.arrow_downward, color: Colors.white)),
+                title: Text('Quick UPI Transfer'),
+                subtitle: Text('2 days ago'),
+                trailing: Text('+₹100.00', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 15)),
+              ),
+            ],
           ),
-          ListTile(
-            leading: const Icon(Icons.devices, color: Color(0xFF1E88E5)),
-            title: const Text('Linked devices'),
-            subtitle: const Text('Use VibeNet on other devices'),
-            onTap: () => _showFeatureMessage('Linked devices'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.key, color: Color(0xFF1E88E5)),
-            title: const Text('Account'),
-            subtitle: const Text('Security notifications, change number'),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const AccountSettingsScreen(),
-                ),
-              );
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.lock, color: Color(0xFF1E88E5)),
-            title: const Text('Privacy'),
-            subtitle: const Text('Blocked accounts, disappearing messages, biometric'),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (c) => PrivacySettingsScreen(myPhone: widget.myPhone),
-                ),
-              );
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.list_alt, color: Color(0xFF1E88E5)),
-            title: const Text('Lists'),
-            subtitle: const Text('Manage people and groups'),
-            onTap: () => _showFeatureMessage('Lists'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.chat_bubble_outline, color: Color(0xFF1E88E5)),
-            title: const Text('Chats'),
-            subtitle: const Text('Chat history, backup'),
-            onTap: _showGmailBackupDialog,
-          ),
-          ListTile(
-            leading: const Icon(Icons.palette, color: Color(0xFF1E88E5)),
-            title: const Text('Appearance'),
-            subtitle: Text('Theme: ${appThemeMode.value == ThemeMode.dark ? 'Dark Mode' : 'Light Mode'}'),
-            trailing: Switch(
-              value: appThemeMode.value == ThemeMode.dark,
-              activeColor: const Color(0xFF1E88E5),
-              onChanged: (val) async {
-                setState(() {
-                  appThemeMode.value = val ? ThemeMode.dark : ThemeMode.light;
-                });
-                try {
-                  await FirebaseFirestore.instance.collection('users').doc(widget.myPhone).update({
-                    'isDarkMode': val,
-                  });
-                } catch (_) {}
-              },
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickActionButton(IconData icon, String label, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E88E5).withOpacity(0.15),
+              shape: BoxShape.circle,
             ),
+            child: Icon(icon, color: const Color(0xFF1E88E5), size: 28),
           ),
-          ListTile(
-            leading: const Icon(Icons.campaign, color: Color(0xFF1E88E5)),
-            title: const Text('Broadcasts'),
-            subtitle: const Text('Manage lists and send broadcasts'),
-            onTap: () => _showFeatureMessage('Broadcasts'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.notifications, color: Color(0xFF1E88E5)),
-            title: const Text('Notifications'),
-            subtitle: const Text('Message, group & call tones'),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (c) => NotificationsSettingsScreen(myPhone: widget.myPhone),
-                ),
-              );
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.storage, color: Color(0xFF1E88E5)),
-            title: const Text('Storage and data'),
-            subtitle: const Text('Network usage, auto-download'),
-            onTap: () => _showFeatureMessage('Storage and data'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.child_care, color: Color(0xFF1E88E5)),
-            title: const Text('Parental controls'),
-            subtitle: const Text('Settings for your family'),
-            onTap: () => _showFeatureMessage('Parental controls'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.accessibility, color: Color(0xFF1E88E5)),
-            title: const Text('Accessibility'),
-            subtitle: const Text('Increase contrast, animation'),
-            onTap: () => _showFeatureMessage('Accessibility'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.language, color: Color(0xFF1E88E5)),
-            title: const Text('App language'),
-            subtitle: Text(appLanguage.value == 'bn' ? 'বাংলা (Bengali)' : (appLanguage.value == 'hi' ? 'हिन्दी (Hindi)' : 'English')),
-            onTap: () => showLanguageSelector(context),
-          ),
-          ListTile(
-            leading: const Icon(Icons.help_outline, color: Color(0xFF1E88E5)),
-            title: const Text('Help and feedback'),
-            subtitle: const Text('Help centre, contact us, privacy policy'),
-            onTap: () => _showFeatureMessage('Help and feedback'),
-          ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.logout, color: Colors.red),
-            title: const Text('Log Out', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-            onTap: () async {
-              await FirebaseAuth.instance.signOut();
-              if (context.mounted) {
-                Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => const WelcomeTermsScreen()));
-              }
-            },
-          ),
+          const SizedBox(height: 8),
+          Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
         ],
       ),
     );
