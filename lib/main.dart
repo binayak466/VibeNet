@@ -1264,12 +1264,31 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
                           });
                         },
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.logout, color: Colors.red),
-                        onPressed: () async {
-                          await FirebaseAuth.instance.signOut();
-                          Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => const WelcomeTermsScreen()));
+                      PopupMenuButton<String>(
+                        icon: const Icon(Icons.more_vert),
+                        onSelected: (value) async {
+                          if (value == 'logout') {
+                            await FirebaseAuth.instance.signOut();
+                            if (mounted) {
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(builder: (c) => const WelcomeTermsScreen()),
+                              );
+                            }
+                          }
                         },
+                        itemBuilder: (BuildContext context) => [
+                          const PopupMenuItem<String>(
+                            value: 'logout',
+                            child: Row(
+                              children: [
+                                Icon(Icons.logout, color: Colors.red, size: 20),
+                                SizedBox(width: 8),
+                                Text('Logout', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -3031,7 +3050,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             leading: const Icon(Icons.storage, color: Color(0xFF1E88E5)),
             title: const Text('Storage and data'),
             subtitle: const Text('Network usage, auto-download'),
-            onTap: () => _showFeatureMessage('Storage and data'),
+            onTap: () => _profilePhotoPrivacy ?? _showFeatureMessage('Storage and data'),
           ),
           ListTile(
             leading: const Icon(Icons.child_care, color: Color(0xFF1E88E5)),
