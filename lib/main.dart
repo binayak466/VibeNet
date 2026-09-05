@@ -3050,7 +3050,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             leading: const Icon(Icons.storage, color: Color(0xFF1E88E5)),
             title: const Text('Storage and data'),
             subtitle: const Text('Network usage, auto-download'),
-            onTap: () => _profilePhotoPrivacy ?? _showFeatureMessage('Storage and data'),
+            onTap: () => _showFeatureMessage('Storage and data'),
           ),
           ListTile(
             leading: const Icon(Icons.child_care, color: Color(0xFF1E88E5)),
