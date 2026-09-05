@@ -2828,6 +2828,63 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
     );
   }
 
+  void _showPayUpiDialog() {
+    final TextEditingController upiController = TextEditingController();
+    final TextEditingController amountController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Pay via UPI'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: upiController,
+              decoration: const InputDecoration(
+                labelText: 'UPI ID or Phone Number',
+                hintText: 'e.g. 9876543210@vibenet',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: amountController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Amount (₹)',
+                hintText: 'Enter amount',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E88E5), foregroundColor: Colors.white),
+            onPressed: () {
+              final recipient = upiController.text.trim();
+              final amount = amountController.text.trim();
+              if (recipient.isEmpty || amount.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter valid details and amount')));
+                return;
+              }
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Successfully sent ₹$amount to $recipient!')),
+              );
+            },
+            child: const Text('Pay Now'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _scanQrCode() {
     showDialog(
       context: context,
@@ -2922,7 +2979,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildQuickActionButton(Icons.send, 'Pay UPI', () => _showFeatureDialog('Pay UPI', 'Enter recipient phone number or UPI ID to transfer money.')),
+              _buildQuickActionButton(Icons.send, 'Pay UPI', _showPayUpiDialog),
               _buildQuickActionButton(Icons.qr_code, 'My QR', _scanQrCode),
               _buildQuickActionButton(Icons.account_balance, 'Bank Account', () => _showFeatureDialog('Bank Accounts', 'Punjab National Bank A/C linked securely (•••• 6921).')),
             ],
