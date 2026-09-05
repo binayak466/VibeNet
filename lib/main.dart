@@ -1910,6 +1910,22 @@ class _ConversationScreenState extends State<ConversationScreen> {
         foregroundColor: Colors.white,
         actions: [
           IconButton(
+            icon: const Icon(Icons.videocam),
+            tooltip: 'Video Call',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (c) => CallScreen(
+                    receiverName: widget.receiverName,
+                    receiverPhone: widget.receiverPhone,
+                    isVideoCall: true,
+                  ),
+                ),
+              );
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.call),
             tooltip: 'Voice Call',
             onPressed: () {
@@ -1925,21 +1941,21 @@ class _ConversationScreenState extends State<ConversationScreen> {
               );
             },
           ),
-          IconButton(
-            icon: const Icon(Icons.videocam),
-            tooltip: 'Video Call',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (c) => CallScreen(
-                    receiverName: widget.receiverName,
-                    receiverPhone: widget.receiverPhone,
-                    isVideoCall: true,
-                  ),
-                ),
-              );
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            onSelected: (value) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$value selected')));
             },
+            itemBuilder: (BuildContext context) => [
+              const PopupMenuItem(value: 'New group', child: Text('New group')),
+              const PopupMenuItem(value: 'View contact', child: Text('View contact')),
+              const PopupMenuItem(value: 'Search', child: Text('Search')),
+              const PopupMenuItem(value: 'Media, links, and docs', child: Text('Media, links, and docs')),
+              const PopupMenuItem(value: 'Mute notifications', child: Text('Mute notifications')),
+              const PopupMenuItem(value: 'Disappearing messages', child: Text('Disappearing messages')),
+              const PopupMenuItem(value: 'Chat theme', child: Text('Chat theme')),
+              const PopupMenuItem(value: 'More', child: Text('More')),
+            ],
           ),
         ],
       ),
