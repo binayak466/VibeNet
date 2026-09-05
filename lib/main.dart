@@ -12,7 +12,7 @@ import 'package:local_auth/local_auth.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:path_provider/path_provider.dart';
 import 'account_settings_screen.dart';
-import 'razorpay_payment_screen.dart'; // Razorpay পেমেন্ট স্ক্রিন ইম্পোর্ট করা হলো
+import 'razorpay_payment_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -1297,81 +1297,83 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
               ),
             ),
 
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [Color(0xFF1E88E5), Color(0xFF42A5F5)]),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: const [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.wb_sunny, color: Colors.amber, size: 28),
-                          SizedBox(width: 8),
-                          Text('28°C', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
-                        ],
-                      ),
-                      SizedBox(height: 4),
-                      Text('Kolkata, West Bengal', style: TextStyle(color: Colors.white70, fontSize: 13)),
-                    ],
-                  ),
-                  Icon(Icons.location_on, color: Colors.white54, size: 28),
-                ],
-              ),
-            ),
-
-            SizedBox(
-              height: 90,
-              child: StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance.collection('statuses').snapshots(),
-                builder: (context, snapshot) {
-                  final statuses = snapshot.hasData ? snapshot.data!.docs : [];
-                  final myStatuses = statuses.where((doc) => (doc.data() as Map<String, dynamic>)['phone'] == widget.myPhone).toList()
-                      .cast<QueryDocumentSnapshot<Map<String, dynamic>>>();
-                  
-                  String? latestMyImagePath;
-                  if (myStatuses.isNotEmpty) {
-                    latestMyImagePath = myStatuses.last.data()['imagePath'];
-                  }
-                  
-                  return ListView(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    children: [
-                      GestureDetector(
-                        onTap: _uploadStatus,
-                        child: _buildStatusItem('Add Status', Icons.add, null),
-                      ),
-                      if (myStatuses.isNotEmpty)
-                        GestureDetector(
-                          onTap: () => _showMyStatusesList(myStatuses),
-                          child: _buildStatusItem('My Status', null, latestMyImagePath),
+            if (_currentIndex == 0) ...[
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(colors: [Color(0xFF1E88E5), Color(0xFF42A5F5)]),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: const [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.wb_sunny, color: Colors.amber, size: 28),
+                            SizedBox(width: 8),
+                            Text('28°C', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
+                          ],
                         ),
-                      GestureDetector(
-                        onTap: () => _viewSingleStatus('Rahul', null, null, null),
-                        child: _buildStatusItem('Rahul', null, null),
-                      ),
-                      GestureDetector(
-                        onTap: () => _viewSingleStatus('Priya', null, null, null),
-                        child: _buildStatusItem('Priya', null, null),
-                      ),
-                      GestureDetector(
-                        onTap: () => _viewSingleStatus('Anita', null, null, null),
-                        child: _buildStatusItem('Anita', null, null),
-                      ),
-                    ],
-                  );
-                },
+                        SizedBox(height: 4),
+                        Text('Kolkata, West Bengal', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                      ],
+                    ),
+                    Icon(Icons.location_on, color: Colors.white54, size: 28),
+                  ],
+                ),
               ),
-            ),
 
-            const Divider(height: 1),
+              SizedBox(
+                height: 90,
+                child: StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance.collection('statuses').snapshots(),
+                  builder: (context, snapshot) {
+                    final statuses = snapshot.hasData ? snapshot.data!.docs : [];
+                    final myStatuses = statuses.where((doc) => (doc.data() as Map<String, dynamic>)['phone'] == widget.myPhone).toList()
+                        .cast<QueryDocumentSnapshot<Map<String, dynamic>>>();
+                    
+                    String? latestMyImagePath;
+                    if (myStatuses.isNotEmpty) {
+                      latestMyImagePath = myStatuses.last.data()['imagePath'];
+                    }
+                    
+                    return ListView(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      children: [
+                        GestureDetector(
+                          onTap: _uploadStatus,
+                          child: _buildStatusItem('Add Status', Icons.add, null),
+                        ),
+                        if (myStatuses.isNotEmpty)
+                          GestureDetector(
+                            onTap: () => _showMyStatusesList(myStatuses),
+                            child: _buildStatusItem('My Status', null, latestMyImagePath),
+                          ),
+                        GestureDetector(
+                          onTap: () => _viewSingleStatus('Rahul', null, null, null),
+                          child: _buildStatusItem('Rahul', null, null),
+                        ),
+                        GestureDetector(
+                          onTap: () => _viewSingleStatus('Priya', null, null, null),
+                          child: _buildStatusItem('Priya', null, null),
+                        ),
+                        GestureDetector(
+                          onTap: () => _viewSingleStatus('Anita', null, null, null),
+                          child: _buildStatusItem('Anita', null, null),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+
+              const Divider(height: 1),
+            ],
 
             Expanded(
               child: _currentIndex == 0
@@ -1469,13 +1471,13 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
                       },
                     )
                   : (_currentIndex == 1
-                      ? const Center(child: Text('Facebook Style News Feed', style: TextStyle(fontSize: 16)))
+                      ? FeedScreen(myPhone: widget.myPhone)
                       : (_currentIndex == 2
-                          ? const Center(child: Text('Create Post Section', style: TextStyle(fontSize: 16)))
+                          ? CreatePostScreen(myPhone: widget.myPhone)
                           : (_currentIndex == 3
-                              ? const Center(child: Text('Reels & Videos', style: TextStyle(fontSize: 16)))
+                              ? const ReelsScreen()
                               : ProfileScreen(myPhone: widget.myPhone)))),
-            ),
+            ],
           ],
         ),
       ),
@@ -1484,6 +1486,7 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
         selectedItemColor: const Color(0xFF1E88E5),
+        unselectedItemColor: Colors.grey,
         type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.chat_bubble), label: 'Chats'),
@@ -1521,6 +1524,237 @@ class _MainDashboardScreenState extends State<MainDashboardScreen> with WidgetsB
   }
 }
 
+// ----------------- FACEBOOK STYLE FEED SCREEN -----------------
+class FeedScreen extends StatelessWidget {
+  final String myPhone;
+  const FeedScreen({super.key, required this.myPhone});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance.collection('posts').orderBy('timestamp', descending: true).snapshots(),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+          final posts = snapshot.data!.docs;
+
+          if (posts.isEmpty) {
+            return const Center(
+              child: Text('No posts in Feed yet. Be the first to create one!', style: TextStyle(color: Colors.grey)),
+            );
+          }
+
+          return ListView.builder(
+            itemCount: posts.length,
+            itemBuilder: (context, index) {
+              final post = posts[index].data() as Map<String, dynamic>;
+              final caption = post['caption'] ?? '';
+              final imageUrl = post['imageUrl'] ?? '';
+              final posterPhone = post['phone'] ?? '';
+
+              return Card(
+                margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                elevation: 2,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ListTile(
+                      leading: const CircleAvatar(child: Icon(Icons.person)),
+                      title: Text(posterPhone, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      subtitle: const Text('Just now'),
+                    ),
+                    if (caption.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                        child: Text(caption, style: const TextStyle(fontSize: 15)),
+                      ),
+                    const SizedBox(height: 8),
+                    if (imageUrl.isNotEmpty && imageUrl.toString().isNotEmpty)
+                      Image.file(File(imageUrl), width: double.infinity, height: 250, fit: BoxFit.cover),
+                    const Divider(height: 1),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        TextButton.icon(onPressed: () {}, icon: const Icon(Icons.thumb_up_alt_outlined), label: const Text('Like')),
+                        TextButton.icon(onPressed: () {}, icon: const Icon(Icons.comment_outlined), label: const Text('Comment')),
+                        TextButton.icon(onPressed: () {}, icon: const Icon(Icons.share_outlined), label: const Text('Share')),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ----------------- CREATE POST SCREEN -----------------
+class CreatePostScreen extends StatefulWidget {
+  final String myPhone;
+  const CreatePostScreen({super.key, required this.myPhone});
+
+  @override
+  State<CreatePostScreen> createState() => _CreatePostScreenState();
+}
+
+class _CreatePostScreenState extends State<CreatePostScreen> {
+  final TextEditingController _captionController = TextEditingController();
+  String? _selectedImagePath;
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      setState(() {
+        _selectedImagePath = pickedFile.path;
+      });
+    }
+  }
+
+  void _uploadPost() async {
+    final caption = _captionController.text.trim();
+    if (caption.isEmpty && _selectedImagePath == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please write something or select an image')));
+      return;
+    }
+
+    await FirebaseFirestore.instance.collection('posts').add({
+      'phone': widget.myPhone,
+      'caption': caption,
+      'imageUrl': _selectedImagePath ?? '',
+      'timestamp': FieldValue.serverTimestamp(),
+    });
+
+    _captionController.clear();
+    setState(() {
+      _selectedImagePath = null;
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Post published successfully to Feed!')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            TextField(
+              controller: _captionController,
+              maxLines: 4,
+              decoration: const InputDecoration(
+                hintText: "What's on your mind?",
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (_selectedImagePath != null)
+              Stack(
+                alignment: Alignment.topRight,
+                children: [
+                  Image.file(File(_selectedImagePath!), height: 180, width: double.infinity, fit: BoxFit.cover),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    onPressed: () => setState(() => _selectedImagePath = null),
+                  ),
+                ],
+              ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: _pickImage,
+              icon: const Icon(Icons.photo_library),
+              label: const Text('Add Photo from Gallery'),
+            ),
+            const Spacer(),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1E88E5),
+                foregroundColor: Colors.white,
+                minimumSize: const Size.fromHeight(50),
+              ),
+              onPressed: _uploadPost,
+              child: const Text('Post to Feed', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ----------------- REELS SCREEN -----------------
+class ReelsScreen extends StatelessWidget {
+  const ReelsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final List<Map<String, String>> dummyReels = [
+      {'user': 'Rahul', 'caption': 'VibeNet First Reel! 🚀', 'video': 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'},
+      {'user': 'Priya', 'caption': 'Enjoying the evening ✨', 'video': 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3'},
+    ];
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: PageView.builder(
+        scrollDirection: Axis.vertical,
+        itemCount: dummyReels.length,
+        itemBuilder: (context, index) {
+          final reel = dummyReels[index];
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              Container(
+                color: Colors.grey[900],
+                child: Center(
+                  child: Text(
+                    'Reel Video Player\n(${reel['user']})',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.white, fontSize: 18),
+                  ),
+                ),
+              ),
+              Positioned(
+                bottom: 40,
+                left: 16,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('@${reel['user']}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                    const SizedBox(height: 8),
+                    Text(reel['caption']!, style: const TextStyle(color: Colors.white70, fontSize: 14)),
+                  ],
+                ),
+              ),
+              Positioned(
+                bottom: 40,
+                right: 16,
+                child: Column(
+                  children: [
+                    IconButton(icon: const Icon(Icons.favorite, color: Colors.white, size: 30), onPressed: () {}),
+                    const Text('1.2K', style: TextStyle(color: Colors.white, fontSize: 12)),
+                    const SizedBox(height: 16),
+                    IconButton(icon: const Icon(Icons.comment, color: Colors.white, size: 30), onPressed: () {}),
+                    const Text('45', style: TextStyle(color: Colors.white, fontSize: 12)),
+                    const SizedBox(height: 16),
+                    IconButton(icon: const Icon(Icons.share, color: Colors.white, size: 30), onPressed: () {}),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ----------------- অন্যান্য স্ক্রিন ক্লাসগুলো অপরিবর্তিত রাখা হলো -----------------
 class GroupConversationScreen extends StatefulWidget {
   final String myPhone;
   final String groupId;
@@ -2875,11 +3109,12 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                 return;
               }
               Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Successfully sent ₹$amount to $recipient!')),
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const RazorpayPaymentScreen()),
               );
             },
-            child: const Text('Pay Now'),
+            child: const Text('Proceed to Pay'),
           ),
         ],
       ),
@@ -2981,12 +3216,16 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _buildQuickActionButton(Icons.send, 'Pay UPI', _showPayUpiDialog),
-              _buildQuickActionButton(Icons.qr_code, 'My QR', _scanQrCode),
+              _buildQuickActionButton(Icons.qr_code, 'My QR', () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (c) => QrCodeScreen(myPhone: widget.myPhone)),
+                );
+              }),
               _buildQuickActionButton(Icons.account_balance, 'Bank Account', () => _showFeatureDialog('Bank Accounts', 'Punjab National Bank A/C linked securely (•••• 6921).')),
             ],
           ),
           const SizedBox(height: 24),
-          // Razorpay পেমেন্ট ট্রিগার করার জন্য নতুন বাটন যোগ করা হলো
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF1E88E5),
@@ -3021,12 +3260,6 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                 title: Text('Sent to Priya'),
                 subtitle: Text('Yesterday, 4:20 PM'),
                 trailing: Text('-₹200.00', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 15)),
-              ),
-              ListTile(
-                leading: CircleAvatar(backgroundColor: Colors.green, child: Icon(Icons.arrow_downward, color: Colors.white)),
-                title: Text('Quick UPI Transfer'),
-                subtitle: Text('2 days ago'),
-                trailing: Text('+₹100.00', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 15)),
               ),
             ],
           ),
@@ -3361,6 +3594,236 @@ class _ProfileScreenState extends State<ProfileScreen> {
             },
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ----------------- FACEBOOK STYLE FEED SCREEN -----------------
+class FeedScreen extends StatelessWidget {
+  final String myPhone;
+  const FeedScreen({super.key, required this.myPhone});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance.collection('posts').orderBy('timestamp', descending: true).snapshots(),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+          final posts = snapshot.data!.docs;
+
+          if (posts.isEmpty) {
+            return const Center(
+              child: Text('No posts in Feed yet. Be the first to create one!', style: TextStyle(color: Colors.grey)),
+            );
+          }
+
+          return ListView.builder(
+            itemCount: posts.length,
+            itemBuilder: (context, index) {
+              final post = posts[index].data() as Map<String, dynamic>;
+              final caption = post['caption'] ?? '';
+              final imageUrl = post['imageUrl'] ?? '';
+              final posterPhone = post['phone'] ?? '';
+
+              return Card(
+                margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                elevation: 2,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ListTile(
+                      leading: const CircleAvatar(child: Icon(Icons.person)),
+                      title: Text(posterPhone, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      subtitle: const Text('Just now'),
+                    ),
+                    if (caption.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                        child: Text(caption, style: const TextStyle(fontSize: 15)),
+                      ),
+                    const SizedBox(height: 8),
+                    if (imageUrl.isNotEmpty && imageUrl.toString().isNotEmpty)
+                      Image.file(File(imageUrl), width: double.infinity, height: 250, fit: BoxFit.cover),
+                    const Divider(height: 1),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        TextButton.icon(onPressed: () {}, icon: const Icon(Icons.thumb_up_alt_outlined), label: const Text('Like')),
+                        TextButton.icon(onPressed: () {}, icon: const Icon(Icons.comment_outlined), label: const Text('Comment')),
+                        TextButton.icon(onPressed: () {}, icon: const Icon(Icons.share_outlined), label: const Text('Share')),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ----------------- CREATE POST SCREEN -----------------
+class CreatePostScreen extends StatefulWidget {
+  final String myPhone;
+  const CreatePostScreen({super.key, required this.myPhone});
+
+  @override
+  State<CreatePostScreen> createState() => _CreatePostScreenState();
+}
+
+class _CreatePostScreenState extends State<CreatePostScreen> {
+  final TextEditingController _captionController = TextEditingController();
+  String? _selectedImagePath;
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      setState(() {
+        _selectedImagePath = pickedFile.path;
+      });
+    }
+  }
+
+  void _uploadPost() async {
+    final caption = _captionController.text.trim();
+    if (caption.isEmpty && _selectedImagePath == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please write something or select an image')));
+      return;
+    }
+
+    await FirebaseFirestore.instance.collection('posts').add({
+      'phone': widget.myPhone,
+      'caption': caption,
+      'imageUrl': _selectedImagePath ?? '',
+      'timestamp': FieldValue.serverTimestamp(),
+    });
+
+    _captionController.clear();
+    setState(() {
+      _selectedImagePath = null;
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Post published successfully to Feed!')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            TextField(
+              controller: _captionController,
+              maxLines: 4,
+              decoration: const InputDecoration(
+                hintText: "What's on your mind?",
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (_selectedImagePath != null)
+              Stack(
+                alignment: Alignment.topRight,
+                children: [
+                  Image.file(File(_selectedImagePath!), height: 180, width: double.infinity, fit: BoxFit.cover),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    onPressed: () => setState(() => _selectedImagePath = null),
+                  ),
+                ],
+              ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: _pickImage,
+              icon: const Icon(Icons.photo_library),
+              label: const Text('Add Photo from Gallery'),
+            ),
+            const Spacer(),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1E88E5),
+                foregroundColor: Colors.white,
+                minimumSize: const Size.fromHeight(50),
+              ),
+              onPressed: _uploadPost,
+              child: const Text('Post to Feed', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ----------------- REELS SCREEN -----------------
+class ReelsScreen extends StatelessWidget {
+  const ReelsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final List<Map<String, String>> dummyReels = [
+      {'user': 'Rahul', 'caption': 'VibeNet First Reel! 🚀', 'video': 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'},
+      {'user': 'Priya', 'caption': 'Enjoying the evening ✨', 'video': 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3'},
+    ];
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: PageView.builder(
+        scrollDirection: Axis.vertical,
+        itemCount: dummyReels.length,
+        itemBuilder: (context, index) {
+          final reel = dummyReels[index];
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              Container(
+                color: Colors.grey[900],
+                child: Center(
+                  child: Text(
+                    'Reel Video Player\n(${reel['user']})',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.white, fontSize: 18),
+                  ),
+                ),
+              ),
+              Positioned(
+                bottom: 40,
+                left: 16,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('@${reel['user']}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                    const SizedBox(height: 8),
+                    Text(reel['caption']!, style: const TextStyle(color: Colors.white70, fontSize: 14)),
+                  ],
+                ),
+              ),
+              Positioned(
+                bottom: 40,
+                right: 16,
+                child: Column(
+                  children: [
+                    IconButton(icon: const Icon(Icons.favorite, color: Colors.white, size: 30), onPressed: () {}),
+                    const Text('1.2K', style: TextStyle(color: Colors.white, fontSize: 12)),
+                    const SizedBox(height: 16),
+                    IconButton(icon: const Icon(Icons.comment, color: Colors.white, size: 30), onPressed: () {}),
+                    const Text('45', style: TextStyle(color: Colors.white, fontSize: 12)),
+                    const SizedBox(height: 16),
+                    IconButton(icon: const Icon(Icons.share, color: Colors.white, size: 30), onPressed: () {}),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
