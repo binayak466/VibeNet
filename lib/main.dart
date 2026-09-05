@@ -12,6 +12,7 @@ import 'package:local_auth/local_auth.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:path_provider/path_provider.dart';
 import 'account_settings_screen.dart';
+import 'razorpay_payment_screen.dart'; // Razorpay পেমেন্ট স্ক্রিন ইম্পোর্ট করা হলো
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -2983,6 +2984,24 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
               _buildQuickActionButton(Icons.qr_code, 'My QR', _scanQrCode),
               _buildQuickActionButton(Icons.account_balance, 'Bank Account', () => _showFeatureDialog('Bank Accounts', 'Punjab National Bank A/C linked securely (•••• 6921).')),
             ],
+          ),
+          const SizedBox(height: 24),
+          // Razorpay পেমেন্ট ট্রিগার করার জন্য নতুন বাটন যোগ করা হলো
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1E88E5),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const RazorpayPaymentScreen()),
+              );
+            },
+            icon: const Icon(Icons.payment),
+            label: const Text('Pay via Razorpay (Gateway)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ),
           const SizedBox(height: 24),
           const Text('Recent Transactions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
