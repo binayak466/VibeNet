@@ -2930,7 +2930,8 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
           const SizedBox(height: 24),
           const Text('Recent Transactions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
-          ListView.shrinkWrap(
+          ListView(
+            shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             children: const [
               ListTile(
